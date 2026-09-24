@@ -1,0 +1,4 @@
+method,reference_distance_mm,reference_eye_separation_px,detected_frames,total_frames
+haar,600.0,112.09148049695838,122,150
+yunet,600.0,111.94711328314912,150,150
+mediapipe,600.0,105.65523943560615,150,150

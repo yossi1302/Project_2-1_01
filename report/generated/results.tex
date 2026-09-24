@@ -1,0 +1,16 @@
+% Generated from measured summary.csv. Do not edit by hand.
+\newif\ifresultspending
+\resultspendingfalse
+
+\newcommand{\ResultTable}{%
+\begin{tabularx}{\columnwidth}{@{}lrrrr@{}}
+\toprule
+Method & Detect. & P95 ms & Jitter mm & Score\\
+\midrule
+Haar & 83.0\% & 46.2 & 10.7 & 20.0\\
+MediaPipe & 100.0\% & 9.7 & 3.7 & 85.9\\
+YuNet & 100.0\% & 28.2 & 8.4 & 56.3\\
+\bottomrule
+\end{tabularx}}
+
+\newcommand{\SelectionStatement}{MediaPipe is selected for phases 2 and 3. It passed both predefined gates and achieved the highest weighted score (85.9/100) among the passing methods. YuNet also passed, but its worst normal-condition P95 latency was 28.2 ms versus 9.7 ms for MediaPipe, and its stationary 3D jitter was 8.4 mm versus 3.7 mm. Haar was excluded because it had sub-95\% detection in horizontal and 46.2 ms worst-case P95 latency.}

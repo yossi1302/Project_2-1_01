@@ -1,0 +1,66 @@
+[experiment]
+runs = 3
+
+[camera]
+index = 1
+width_px = 1280
+height_px = 720
+fps = 30.0
+horizontal_fov_deg = 60.0
+
+[recording]
+video = "data/private/experiment.mp4"
+
+[calibration]
+duration_seconds = 5.0
+instructions = "Sit centred at the 600 mm reference mark and remain still."
+reference_distance_mm = 600.0
+
+[[conditions]]
+name = "stationary"
+instructions = "Remain centred and still at the 600 mm reference mark."
+preparation_seconds = 0.0
+duration_seconds = 15.0
+expected_position_mm = [0.0, 0.0, 600.0]
+
+[[conditions]]
+name = "horizontal"
+instructions = "Move slowly left and right while facing the screen."
+preparation_seconds = 5.0
+duration_seconds = 15.0
+
+[[conditions]]
+name = "vertical"
+instructions = "Move slowly up and down while facing the screen."
+preparation_seconds = 5.0
+duration_seconds = 15.0
+
+[[conditions]]
+name = "distance"
+instructions = "Move slowly between approximately 400 mm and 800 mm from the camera."
+preparation_seconds = 5.0
+duration_seconds = 15.0
+
+[[conditions]]
+name = "low_light"
+instructions = "Sit centred and still with the room lighting reduced."
+preparation_seconds = 10.0
+duration_seconds = 15.0
+
+[[conditions]]
+name = "glasses"
+instructions = "Repeat the stationary condition while wearing glasses."
+preparation_seconds = 10.0
+duration_seconds = 15.0
+
+[[conditions]]
+name = "occlusion"
+instructions = "Partly cover one eye for five seconds, then uncover it."
+preparation_seconds = 5.0
+duration_seconds = 15.0
+
+[[conditions]]
+name = "head_rotation"
+instructions = "Turn the head slowly left and right without changing seating position."
+preparation_seconds = 5.0
+duration_seconds = 15.0

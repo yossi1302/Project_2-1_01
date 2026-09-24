@@ -1,0 +1,17 @@
+.DS_Store
+.venv/
+.venv312/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+models/*.onnx
+models/*.task
+models/*.xml
+data/private/
+report/eye_tracking_comparison.aux
+report/eye_tracking_comparison.fdb_latexmk
+report/eye_tracking_comparison.fls
+report/eye_tracking_comparison.log
+report/eye_tracking_comparison.out
+report/build/

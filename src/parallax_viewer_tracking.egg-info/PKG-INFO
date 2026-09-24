@@ -1,0 +1,12 @@
+Metadata-Version: 2.4
+Name: parallax-viewer-tracking
+Version: 0.1.0
+Summary: Reproducible viewer-position tracking comparison for Project 2.1
+Requires-Python: <3.13,>=3.12
+Requires-Dist: matplotlib==3.10.6
+Requires-Dist: mediapipe==0.10.21
+Requires-Dist: numpy==1.26.4
+Requires-Dist: opencv-contrib-python==4.11.0.86
+Provides-Extra: dev
+Requires-Dist: pytest==8.4.2; extra == "dev"
+Requires-Dist: ruff==0.13.2; extra == "dev"
