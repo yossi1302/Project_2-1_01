@@ -28,7 +28,7 @@ class Renderer:
 
         # This is where the last frame is always stored
         # after being rendered.
-        self.frame_array = np.empty((1, 1), dtype=np.uint8)
+        self.frame_array = np.empty((1, 1, 3), dtype=np.uint8)
 
     def run(self):
         self.thread.start()
@@ -40,7 +40,8 @@ class Renderer:
 
     # Returns the last rendered frame as a numpy uint8 array
     def last_frame(self):
-        return self.frame_array
+        with self.render_lock:
+            return self.frame_array
 
     def thread_proc(self):
         base = ShowBase(
@@ -62,7 +63,6 @@ class Renderer:
             fb_prop, win_prop,
             GraphicsPipe.BFRefuseWindow
         )
-        disp_region = window.makeDisplayRegion()
 
         # This texture is where the actual offscreen window contents will go.
         render_tex = Texture()
@@ -70,6 +70,13 @@ class Renderer:
             render_tex,
             GraphicsOutput.RTMCopyRam, GraphicsOutput.RTPColor
         )
+        disp_region = window.makeDisplayRegion()
+        disp_region.setCamera(base.cam)
+
+        scene = base.loader.loadModel("models/environment")
+        scene.reparentTo(base.render)
+        scene.setScale(0.25, 0.25, 0.25)
+        scene.setPos(-8, 42, 0)
 
         while not self.stop_requested.is_set():
             start_time = time.perf_counter()
@@ -87,8 +94,10 @@ class Renderer:
 
     def record_frame(self, tex):
         img = tex.getRamImage()
-        self.frame_array = np.frombuffer(img, dtype=np.uint8)
-        self.frame_array.shape = (
-            tex.getYSize(), tex.getXSize(), tex.getNumComponents()
-        )
+
+        with self.render_lock:
+            self.frame_array = np.frombuffer(img, dtype=np.uint8)
+            self.frame_array.shape = (
+                tex.getYSize(), tex.getXSize(), tex.getNumComponents()
+            )
 
