@@ -7,6 +7,8 @@ import numpy as np
 import flet as ft
 
 from render import Renderer
+from space import Eye, Screen
+import space
 
 def main():
     rend = Renderer(frametime=1/60)
@@ -26,7 +28,14 @@ def main():
         page.add(target)
 
         async def update_target():
+            eye = Eye(x=0, y=0, z=20)
+            screen = Screen(width=1200, height=700, cam_offset=0)
+
             while True:
+                eye.x += 0.1
+                config = space.place_camera(eye, screen)
+                rend.configure_camera(config)
+
                 last = rend.last_frame()
                 target.src = encode_frame(last)
                 page.update()

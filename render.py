@@ -2,9 +2,11 @@ import threading
 import time
 
 from direct.showbase.ShowBase import ShowBase
-from panda3d.core import Texture, FrameBufferProperties, WindowProperties, GraphicsPipe, GraphicsOutput
+from panda3d.core import Texture, FrameBufferProperties, WindowProperties, GraphicsPipe, GraphicsOutput, PerspectiveLens
 
 import numpy as np
+
+import space
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -43,6 +45,9 @@ class Renderer:
         with self.render_lock:
             return self.frame_array
 
+    def configure_camera(self, config):
+        self.camera_config = config
+
     def thread_proc(self):
         base = ShowBase(
             fStartDirect=True,
@@ -73,6 +78,10 @@ class Renderer:
         disp_region = window.makeDisplayRegion()
         disp_region.setCamera(base.cam)
 
+        lens = PerspectiveLens()
+        lens.setNearFar(1, 200)
+        base.cam.node().setLens(lens)
+
         scene = base.loader.loadModel("models/environment")
         scene.reparentTo(base.render)
         scene.setScale(0.25, 0.25, 0.25)
@@ -80,6 +89,14 @@ class Renderer:
 
         while not self.stop_requested.is_set():
             start_time = time.perf_counter()
+
+            if self.camera_config != None:
+                cfg = self.camera_config
+                base.camera.setPos(cfg.pos)
+                base.camera.setHpr(0, 0, 0)
+                lens.setFilmSize(cfg.film_size)
+                lens.setFilmOffset(cfg.film_offset)
+                lens.setFocalLength(cfg.focal_length)
 
             base.graphicsEngine.renderFrame()
             self.record_frame(render_tex)
