@@ -19,26 +19,28 @@ def main():
         page.window.height = 700
 
         # Image where the render texture will get copied.
-        target = ft.Image(
-            src=encode_frame(rend.last_frame()),
+        #target = ft.Image(
+        #    src=encode_frame(rend.last_frame()),
+        #    fit=ft.BoxFit.CONTAIN,
+        #    gapless_playback=True,
+        #    expand=True,
+        #)
+        target = ft.RawImage(
             fit=ft.BoxFit.CONTAIN,
-            gapless_playback=True,
             expand=True,
         )
         page.add(target)
 
         async def update_target():
-            eye = Eye(x=0, y=0, z=20)
-            screen = Screen(width=1200, height=700, cam_offset=0)
+            eye = Eye(x=0, y=25, z=10)
+            screen = Screen(width=40, height=17.5, cam_offset=0)
 
             while True:
-                eye.x += 0.1
+                eye.x += 0.03
                 config = space.place_camera(eye, screen)
                 rend.configure_camera(config)
 
-                last = rend.last_frame()
-                target.src = encode_frame(last)
-                page.update()
+                await target.render(np.flip(rend.last_frame(), 0))
                 await asyncio.sleep(1/60)
 
         page.update()
@@ -46,14 +48,6 @@ def main():
         page.run_task(update_target)
 
     ft.run(gui_main)
-
-def encode_frame(frame):
-    ok, encoded = cv2.imencode(
-        ".jpg", np.flipud(frame), [cv2.IMWRITE_JPEG_QUALITY, 85]
-    )
-    if not ok:
-        os.exit(1)
-    return encoded.tobytes()
 
 if __name__ == "__main__":
     main()

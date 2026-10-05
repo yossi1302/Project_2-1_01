@@ -79,21 +79,19 @@ class Renderer:
         disp_region.setCamera(base.cam)
 
         lens = PerspectiveLens()
-        lens.setNearFar(1, 200)
+        lens.setNearFar(1, 500)
         base.cam.node().setLens(lens)
 
         scene = base.loader.loadModel("models/environment")
         scene.reparentTo(base.render)
-        scene.setScale(0.25, 0.25, 0.25)
-        scene.setPos(-8, 42, 0)
 
         while not self.stop_requested.is_set():
             start_time = time.perf_counter()
 
             if self.camera_config != None:
                 cfg = self.camera_config
-                base.camera.setPos(cfg.pos)
-                base.camera.setHpr(0, 0, 0)
+                base.cam.setPos(*cfg.pos)
+                base.cam.setHpr(0, 0, 0)
                 lens.setFilmSize(cfg.film_size)
                 lens.setFilmOffset(cfg.film_offset)
                 lens.setFocalLength(cfg.focal_length)

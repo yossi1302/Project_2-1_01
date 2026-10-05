@@ -23,7 +23,7 @@ class CameraConfig:
 
 # Place the camera in panda3d space given the eye and screen
 def place_camera(eye, screen):
-    dist = max(eye.z, EYE_NEAR_CLIP)
+    dist = max(eye.y, EYE_NEAR_CLIP)
     return CameraConfig(
         pos = (eye.x, -dist, eye.z),
         film_size = (screen.width, screen.height),
