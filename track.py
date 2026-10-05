@@ -2,6 +2,9 @@ import mediapipe as mp
 import cv2
 import numpy as np
 
+# This was mostly copied straight from the old one, I tried to test it,
+# didn't run on my laptop, nothing works and I am very sad :(
+#       - stefan
 class Tracker:
     def __init__(self):
         model_path = "./model/face_landmarker.task"

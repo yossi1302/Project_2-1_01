@@ -19,16 +19,7 @@ def main():
         page.window.height = 700
 
         # Image where the render texture will get copied.
-        #target = ft.Image(
-        #    src=encode_frame(rend.last_frame()),
-        #    fit=ft.BoxFit.CONTAIN,
-        #    gapless_playback=True,
-        #    expand=True,
-        #)
-        target = ft.RawImage(
-            fit=ft.BoxFit.CONTAIN,
-            expand=True,
-        )
+        target = ft.RawImage(fit=ft.BoxFit.CONTAIN, expand=True)
         page.add(target)
 
         async def update_target():
@@ -40,6 +31,8 @@ def main():
                 config = space.place_camera(eye, screen)
                 rend.configure_camera(config)
 
+                # The frame is flipped since panda3d and flet
+                # don't agree on vertical orientation.
                 await target.render(np.flip(rend.last_frame(), 0))
                 await asyncio.sleep(1/60)
 
