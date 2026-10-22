@@ -3,10 +3,12 @@ import time
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import Texture, FrameBufferProperties, WindowProperties, GraphicsPipe, GraphicsOutput, PerspectiveLens
+from panda3d.core import LColorf
 
 import numpy as np
 
 import space
+import models
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -77,13 +79,14 @@ class Renderer:
         )
         disp_region = window.makeDisplayRegion()
         disp_region.setCamera(base.cam)
+        disp_region.setClearColorActive(True)
+        disp_region.setClearColor(LColorf(0, 0, 0, 1))
 
         lens = PerspectiveLens()
         lens.setNearFar(1, 500)
         base.cam.node().setLens(lens)
 
-        scene = base.loader.loadModel("models/environment")
-        scene.reparentTo(base.render)
+        models.load_example(base.render)
 
         while not self.stop_requested.is_set():
             start_time = time.perf_counter()

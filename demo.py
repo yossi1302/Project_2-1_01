@@ -44,20 +44,21 @@ def main():
         state = {"eye": Eye(x=0, y=25, z=10)}
 
         async def track_viewer():
-            cap = cv2.VideoCapture(CAMERA_INDEX)
-            tracker = track.Tracker()
-            start, last_ts = time.monotonic(), -1
-            while True:
-                ok, frame = await asyncio.to_thread(cap.read)
-                if not ok:
-                    await asyncio.sleep(0.1)
-                    continue
-                # VIDEO mode needs strictly increasing timestamps
-                last_ts = max(int((time.monotonic() - start) * 1000), last_ts + 1)
-                result = await asyncio.to_thread(tracker.find, frame, last_ts)
-                if result.detected:
-                    h, w = frame.shape[:2]
-                    state["eye"] = eye_from_tracking(result.eyes, w, h, screen)
+            pass
+            #cap = cv2.VideoCapture(CAMERA_INDEX)
+            #tracker = track.Tracker()
+            #start, last_ts = time.monotonic(), -1
+            #while True:
+            #    ok, frame = await asyncio.to_thread(cap.read)
+            #    if not ok:
+            #        await asyncio.sleep(0.1)
+            #        continue
+            #    # VIDEO mode needs strictly increasing timestamps
+            #    last_ts = max(int((time.monotonic() - start) * 1000), last_ts + 1)
+            #    result = await asyncio.to_thread(tracker.find, frame, last_ts)
+            #    if result.detected:
+            #        h, w = frame.shape[:2]
+            #        state["eye"] = eye_from_tracking(result.eyes, w, h, screen)
 
         async def update_target():
             while True:
