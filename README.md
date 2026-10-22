@@ -7,6 +7,13 @@ This project involves the creation of a program which uses eye tracking to creat
 - Panda3D for rendering the 3D scene
 - Flet for the GUI
 
+## Running the demo
+
+1. Create a virtual environment for Python: `python -m venv <path to venv>`
+2. Activate the virtual environment
+3. Install the required libraries: `pip install -r requirements.txt`
+4. Run the demo: `python demo.py`
+
 ## Main components
 
 The program is made up of a number of interconnected components:
