@@ -37,7 +37,26 @@ def main():
 
         # Image where the render texture will get copied.
         target = ft.RawImage(fit=ft.BoxFit.CONTAIN, expand=True)
-        page.add(target)
+        camera_preview = ft.RawImage(fit=ft.BoxFit.CONTAIN)
+        page.add(
+            ft.Stack(
+                controls=[
+                    target,
+                    ft.Container(
+                        content=camera_preview,
+                        width=240,
+                        height=135,
+                        top=12,
+                        right=12,
+                        bgcolor=ft.Colors.BLACK,
+                        border_radius=8,
+                        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                    ),
+                ],
+                fit=ft.StackFit.EXPAND,
+                expand=True,
+            )
+        )
 
         screen = Screen(width=40, height=17.5, cam_offset=0)
         # Latest tracked eye position, shared between the two tasks.
@@ -58,6 +77,13 @@ def main():
                 if result.detected:
                     h, w = frame.shape[:2]
                     state["eye"] = eye_from_tracking(result.eyes, w, h, screen)
+
+                # Mirror only the preview; tracking uses the original camera frame.
+                h, w = frame.shape[:2]
+                scale = min(240 / w, 135 / h)
+                preview = cv2.resize(frame, (max(1, round(w * scale)), max(1, round(h * scale))))
+                preview = cv2.cvtColor(cv2.flip(preview, 1), cv2.COLOR_BGR2RGB)
+                await camera_preview.render(preview)
 
         async def update_target():
             while True:
