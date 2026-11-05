@@ -1,3 +1,4 @@
+from email.mime import base
 import threading
 import time
 
@@ -33,6 +34,9 @@ class Renderer:
         # This is where the last frame is always stored
         # after being rendered.
         self.frame_array = np.empty((1, 1, 3), dtype=np.uint8)
+
+        self.view_mode = "editor"  # "editor" for a fixed 45-degree view and "parallax" for eye-tracking view
+        self.camera_config = None
 
     def run(self):
         self.thread.start()
@@ -80,21 +84,31 @@ class Renderer:
         disp_region = window.makeDisplayRegion()
         disp_region.setCamera(base.cam)
         disp_region.setClearColorActive(True)
-        disp_region.setClearColor(LColorf(0, 0, 0, 1))
+        disp_region.setClearColor(LColorf(0.72, 0.82, 0.88, 1))
 
         lens = PerspectiveLens()
         lens.setNearFar(1, 500)
         base.cam.node().setLens(lens)
 
-        models.load_example(base.render)
+        models.load_paris(base.render, base.loader)
 
         while not self.stop_requested.is_set():
             start_time = time.perf_counter()
+                
+            if self.view_mode == "editor":
+                base.cam.setPos(45, -45, 55)
+                base.cam.lookAt(0, 10, 0)
 
-            if self.camera_config != None:
+                lens.setFilmOffset(0, 0)
+                lens.setFilmSize(60, 35)
+                lens.setFocalLength(80)
+
+            elif self.camera_config is not None:
                 cfg = self.camera_config
+
                 base.cam.setPos(*cfg.pos)
                 base.cam.setHpr(0, 0, 0)
+
                 lens.setFilmSize(cfg.film_size)
                 lens.setFilmOffset(cfg.film_offset)
                 lens.setFocalLength(cfg.focal_length)

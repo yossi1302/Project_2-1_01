@@ -11,7 +11,7 @@ from space import Eye, Screen
 import space
 import track
 
-CAMERA_INDEX = 1     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
+CAMERA_INDEX = 0     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
 IPD_CM = 6.3        # distance between the viewer's pupils; 6.3 is the adult average
 FOCAL_PX = 1000     # camera focal length in pixels, for 1280x720 frames (estimate, not yet measured)
 
@@ -92,8 +92,11 @@ def main():
 
                 # The frame is flipped since panda3d and flet
                 # don't agree on vertical orientation.
-                await target.render(np.flip(rend.last_frame(), 0))
-                await asyncio.sleep(1/60)
+                frame = np.flip(rend.last_frame(), 0)
+                # Panda3D fournit les pixels en BGR ; Flet attend du RGB.
+                frame = np.ascontiguousarray(frame[..., ::-1])
+                await target.render(frame)
+                await asyncio.sleep(0.1)
 
         page.update()
         rend.run()
