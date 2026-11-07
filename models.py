@@ -13,83 +13,6 @@ from panda3d.core import CardMaker
 import gltf
 import math
 
-import render
-
-GROUND_Z = -1.0
-
-BUILDINGS = [
-    (-15, 7, 0), (-15, 15, 0), (-15, 23, 0),
-    (-7, 28, 0), (2, 28, 0),
-    (20, -1, 0), (20, 7, 0), (20, 15, 0), (20, 23, 0), (20, 31, 0),
-]
-
-SHOPS = [(-3, -9, 0)]
-
-SEINE_POINTS = [
-    (7.5, -15), (8.5, -5), (8.0, 0),
-    (9.0, 5), (8.5, 10), (7.5, 15),
-    (8.0, 20), (9.0, 25), (10.0, 35),
-]
-
-SEINE_WIDTH = 5.5
-QUAY_WIDTH = 1.0
-
-ROADS = [
-    {"name": "west_road", "points": [(-10, -11), (-10, 22)], "width": 2.2},
-    {"name": "north_road", "points": [(-12, 24), (5, 24)], "width": 2.2},
-    {"name": "south_road", "points": [(-8, 0), (3, 0)], "width": 2.2},
-    {"name": "east_road", "points": [(15, -15), (15, 35)], "width": 2.2},
-    {"name": "shopping_road", "points": [(-20, -13), (3, -13)], "width": 2.2}
-]
-
-SIDEWALK_WIDTH = 0.8
-SIDEWALK_HEIGHT = 0.15
-SIDEWALK_COLOR = (0.70, 0.68, 0.62, 1)
-
-ROAD_Z = -0.92
-ROAD_COLOR = (0.28, 0.29, 0.30, 1)
-WATER_COLOR = (0.22, 0.38, 0.40, 1)
-STONE_COLOR = (0.67, 0.65, 0.59, 1)
-
-BRIDGE_Y = 0.0
-BRIDGE_X_MIN = 3.0
-BRIDGE_X_MAX = 13.5
-
-TREE_POSITIONS = [
-    (-5, 17), (-5, 20), (-2, 17), (-2, 20), (1, 17), (1, 20),
-    (-21, 5), (-21, 12), (-21, 19), (-21, 26), (-21, 33),
-]
-
-STREETLAMPS = [
-    (-12, 5),
-    (-12, 12),
-    (-12, 19),
-
-    (-8, 5),
-    (-8, 12),
-    (-8, 19),
-
-    (13, 5),
-    (13, 12),
-    (13, 19),
-
-    (17, 5),
-    (17, 12),
-    (17, 19),
-
-    (-5, -2),
-    (-5, 2),
-    (0, -2),
-    (0, 2),
-]
-
-CROSSWALKS = [
-    (-10, 5, "horizontal"),
-    (-10, 21, "horizontal"),
-    (15, 5, "horizontal"),
-    (-2, -13, "vertical"),
-    (-5, 0, "vertical"),
-]
 
 def offset_polyline(points, offset):
     shifted = []
@@ -197,44 +120,6 @@ def load_example(render):
     cube3.setPos(11, 4, -2)
     cube3.setScale(2)
 
-def load_paris(render, loader):
-    # Charge GLTF file
-    model_root = gltf.load_model("assets/models/tour_eiffel.glb")
-
-    # Convert the model to a Panda3D NodePath
-    paris = NodePath(model_root)
-
-    paris.reparentTo(render)
-    paris.setPos(-2, 8, 0)
-    paris.setScale(8)
-
-    paris.setTextureOff(1)
-    paris.setColorOff(1)
-    paris.setColor(0.42, 0.42, 0.42, 1)
-    paris.setLightOff(1)
-
-    place_on_ground(paris)
-
-    add_ground(render)
-    add_seine(render)
-    add_quays(render)
-    add_roads(render)
-    add_bridge(render)
-    add_trees(render)
-    add_crosswalks(render)
-    add_streetlamps(render)
-
-    for position in SHOPS:
-        add_shop(render, position=position)
-
-    for position in BUILDINGS:
-        add_haussmann_building(render, position=position)
-
-    # Display the dimensions of the model
-    print("Dimensions of the Eiffel Tower :", paris.getTightBounds())
-
-    return paris
-
 def add_ground(render):
     # Create a square ground plane using CardMaker
     cm = CardMaker("ground")
@@ -254,9 +139,6 @@ def add_ground(render):
     ground.setTwoSided(True)
 
     return ground
-
-def add_seine(render):
-    return add_path(render, SEINE_POINTS, SEINE_WIDTH, WATER_COLOR, z=-0.94)
 
 def add_model(render, file_path, position, scale=1):
     model_root = gltf.load_model(file_path)
@@ -281,125 +163,25 @@ def add_colored_cube(render, position, scale, color):
 
     return cube
 
-def add_haussmann_building(render, position=(0, 0, 0)):
 
-    building = render.attachNewNode("Haussmann Building")
-
-    # Colors for different parts of the building
-    beige = (0.83, 0.79, 0.70, 1)
-    grey = (0.38, 0.42, 0.45, 1)
-    window_blue = (0.20, 0.28, 0.32, 1)
-
-    # Main part of the building
-    add_colored_cube(building, position=(0, 0, 3), scale=(3, 2, 3), color=beige)
-
-    # Roof of the building
-    add_colored_cube(building, position=(0, 0, 6.2), scale=(3.2, 2.2, 0.5), color=grey)
-
-    # Windows on the building
-    for floor in range(3):
-        for column in range(3):
-            x = -2 + column * 2
-            z = 1.5 + floor * 1.8
-
-            add_colored_cube(building, position=(x, -2.05, z), scale=(0.5, 0.08, 0.65), color=window_blue)
-
-    # Add balconies on the building
-    for floor in [1, 2]:
-        z = 1.0 + floor * 1.8
-
-        add_colored_cube(building, position=(0, -2.4, z), scale=(3.1, 0.4, 0.1), color=grey)
-
-        # Add balcony railings
-        add_colored_cube(building, position=(0, -2.75, z + 0.45), scale=(3.1, 0.05, 0.08), color=grey)
-
-    building.setPos(*position)
-    place_on_ground(building)
-
-    return building
-
-def add_shop(render, position=(0, 0, 0)):
-        
-    for shops in SHOPS:
-
-        shops = render.attachNewNode("Shop")
-
-        beige = (0.83, 0.79, 0.70, 1)
-        grey = (0.38, 0.42, 0.45, 1)
-        window_blue = (0.20, 0.28, 0.32, 1)
-        blue = (0.10, 0.25, 0.32, 1)
-        white = (0.92, 0.92, 0.86, 1)
-        red = (0.80, 0.20, 0.20, 1)
-
-        # Main part of the building
-        add_colored_cube(shops, position=(0, 0, 3), scale=(5, 2, 3), color=beige)
-
-        # Roof of the building
-        add_colored_cube(shops, position=(0, 0, 6.2), scale=(5.2, 2.2, 0.5), color=grey)
-
-        # Windows on the building
-        for column in range(5):
-            x = -2.1 + column * 2
-
-            add_colored_cube(shops, position=(x, -3.5, 6.4), scale=(0.5, 0.08, 0.65), color=window_blue)
-
-        # Small flags on the building
-        for column in range(6):
-            x = -2.3 + column * 1.5
-
-            add_colored_cube(shops, position=(x, -3.5, 5.2), scale=(0.2, 0.08, 0.2), color=blue)
-            add_colored_cube(shops, position=(x + 0.5, -3.5, 5.2), scale=(0.2, 0.08, 0.2), color=white)
-            add_colored_cube(shops, position=(x + 1, -3.5, 5.2), scale=(0.2, 0.08, 0.2), color=red)
-
-        shops.setPos(*position)
-        place_on_ground(shops)
-
-        return shops
-
-def add_quays(render):
-
-    distance = (SEINE_WIDTH + QUAY_WIDTH) / 2
-    left = offset_polyline(SEINE_POINTS, distance)
-    right = offset_polyline(SEINE_POINTS, -distance)
-    add_path(render, left, QUAY_WIDTH, STONE_COLOR, z=-0.93)
-    add_path(render, right, QUAY_WIDTH, STONE_COLOR, z=-0.93)
-
-def add_roads(render):
-
-    for road in ROADS:
-
+def add_roads(render, roads, road_z=-0.92, road_color=(0.28, 0.29, 0.30, 1), sidewalk_width=0.8, sidewalk_height=0.15, sidewalk_color=(0.70, 0.68, 0.62, 1)):
+    for road in roads:
         points = road["points"]
-        road_width = road["width"]
-
-        add_path(render, points=points, width=road_width, color=ROAD_COLOR, z=ROAD_Z)
-
-        # Add sidewalks on both sides of the road
-        for i in range(len(points) - 1):
-
-            x1, y1 = points[i]
-            x2, y2 = points[i + 1]
-            dx = x2 - x1
-            dy = y2 - y1
-
-            length = math.sqrt(dx**2 + dy**2)
-
+        width = road["width"]
+        add_path(render, points, width, road_color, z=road_z)
+        for start, end in zip(points, points[1:]):
+            dx, dy = end[0] - start[0], end[1] - start[1]
+            length = math.hypot(dx, dy)
             if length == 0:
                 continue
+            nx, ny = -dy / length, dx / length
+            offset = (width + sidewalk_width) / 2
+            for sign in (-1, 1):
+                a = (start[0] + sign * nx * offset, start[1] + sign * ny * offset)
+                b = (end[0] + sign * nx * offset, end[1] + sign * ny * offset)
+                add_sidewalk_segment(render, a, b, sidewalk_width, road_z, sidewalk_height, sidewalk_color)
 
-            nx = -dy / length
-            ny = dx / length
-
-            offset = (road_width + SIDEWALK_WIDTH) / 2
-
-            left_start = (x1 + nx * offset, y1 + ny * offset)
-            left_end = (x2 + nx * offset, y2 + ny * offset)
-            right_start = (x1 - nx * offset, y1 - ny * offset)
-            right_end = (x2 - nx * offset, y2 - ny * offset)
-
-            add_sidewalk_segment(render, left_start, left_end, SIDEWALK_WIDTH)
-            add_sidewalk_segment(render, right_start, right_end, SIDEWALK_WIDTH)
-
-def add_sidewalk_segment(render, start, end, width=0.8):
+def add_sidewalk_segment(render, start, end, width=0.8, road_z=-0.92, sidewalk_height=0.15, sidewalk_color=(0.70, 0.68, 0.62, 1)):
 
     x1, y1 = start
     x2, y2 = end
@@ -418,64 +200,47 @@ def add_sidewalk_segment(render, start, end, width=0.8):
 
     sidewalk = add_colored_cube(
         render,
-        position=(center_x, center_y, ROAD_Z + SIDEWALK_HEIGHT / 2),
-        scale=(length / 2, width / 2, SIDEWALK_HEIGHT / 2),
-        color=SIDEWALK_COLOR
+        position=(center_x, center_y, road_z + sidewalk_height / 2),
+        scale=(length / 2, width / 2, sidewalk_height / 2),
+        color=sidewalk_color
     )
 
     sidewalk.setH(angle)
 
     return sidewalk
 
-def add_bridge(render):
-    center_x = (BRIDGE_X_MIN + BRIDGE_X_MAX) / 2
-    half_length = (BRIDGE_X_MAX - BRIDGE_X_MIN) / 2
-    deck_z = -0.68
-    stone = (0.73, 0.70, 0.63, 1)
-    parapet = (0.61, 0.59, 0.54, 1)
-
-    add_colored_cube(render, (center_x, BRIDGE_Y, deck_z), (half_length, 1.45, 0.18), stone)
-
-    for side_y in (BRIDGE_Y - 1.35, BRIDGE_Y + 1.35):
-        add_colored_cube(render, (center_x, side_y, deck_z + 0.65), (half_length, 0.12, 0.12), parapet)
-        for x in (BRIDGE_X_MIN + 0.5, center_x, BRIDGE_X_MAX - 0.5):
-            add_colored_cube(render, (x, side_y, deck_z + 0.34), (0.13, 0.13, 0.35), parapet)
-
-def add_tree(render, x, y, size=1.0):
+def add_tree(render, x, y, size=1.0, ground_z=-1.0):
     trunk = (0.34, 0.27, 0.20, 1)
     leaves_dark = (0.23, 0.37, 0.25, 1)
     leaves_light = (0.31, 0.46, 0.30, 1)
-    add_colored_cube(render, (x, y, GROUND_Z + 1.0 * size), (0.14 * size, 0.14 * size, 1.0 * size), trunk)
-    add_colored_cube(render, (x, y, GROUND_Z + 2.4 * size), (0.85 * size, 0.85 * size, 0.85 * size), leaves_dark)
-    add_colored_cube(render, (x, y, GROUND_Z + 3.3 * size), (0.62 * size, 0.62 * size, 0.65 * size), leaves_light)
+    add_colored_cube(render, (x, y, ground_z + 1.0 * size), (0.14 * size, 0.14 * size, 1.0 * size), trunk)
+    add_colored_cube(render, (x, y, ground_z + 2.4 * size), (0.85 * size, 0.85 * size, 0.85 * size), leaves_dark)
+    add_colored_cube(render, (x, y, ground_z + 3.3 * size), (0.62 * size, 0.62 * size, 0.65 * size), leaves_light)
 
-def add_trees(render):
-    for x, y in TREE_POSITIONS:
-        add_tree(render, x, y)
+def add_trees(render, positions, ground_z=-1.0):
+    for x, y in positions:
+        add_tree(render, x, y, ground_z=ground_z)
 
-def add_streetlamps(render):
+def add_streetlamps(render, positions, ground_z=-1.0):
+    for x, y in positions:
+        add_streetlamp(render, x, y, ground_z=ground_z)
 
-    for x, y in STREETLAMPS:
-        add_streetlamp(render, x, y)
-
-def add_streetlamp(render, x, y):
+def add_streetlamp(render, x, y, ground_z=-1.0):
 
     BLACK = (0.12, 0.12, 0.13, 1)
     LIGHT = (1.0, 0.88, 0.55, 1)
 
-    add_colored_cube(render, position=(x, y, GROUND_Z + 0.15), scale=(0.25, 0.25, 0.15), color=BLACK)
-    add_colored_cube(render, position=(x, y, GROUND_Z + 1.5), scale=(0.08, 0.08, 1.35), color=BLACK)
-    add_colored_cube(render, position=(x, y, GROUND_Z + 2.9), scale=(0.30, 0.30, 0.08), color=BLACK)
-    add_colored_cube(render, position=(x, y, GROUND_Z + 3.25), scale=(0.22, 0.22, 0.32), color=LIGHT)
-    add_colored_cube(render, position=(x, y, GROUND_Z + 3.6), scale=(0.30, 0.30, 0.08), color=BLACK)
+    add_colored_cube(render, position=(x, y, ground_z + 0.15), scale=(0.25, 0.25, 0.15), color=BLACK)
+    add_colored_cube(render, position=(x, y, ground_z + 1.5), scale=(0.08, 0.08, 1.35), color=BLACK)
+    add_colored_cube(render, position=(x, y, ground_z + 2.9), scale=(0.30, 0.30, 0.08), color=BLACK)
+    add_colored_cube(render, position=(x, y, ground_z + 3.25), scale=(0.22, 0.22, 0.32), color=LIGHT)
+    add_colored_cube(render, position=(x, y, ground_z + 3.6), scale=(0.30, 0.30, 0.08), color=BLACK)
     
-def add_crosswalks(render):
+def add_crosswalks(render, positions, road_z=-0.92):
+    for x, y, direction in positions:
+        add_crosswalk(render, x, y, road_direction=direction, road_z=road_z)
 
-    for x, y, direction in CROSSWALKS:
-
-        add_crosswalk(render, x, y, road_direction=direction)
-
-def add_crosswalk(render, x, y, road_direction="horizontal", road_width=2.2):
+def add_crosswalk(render, x, y, road_direction="horizontal", road_width=2.2, road_z=-0.92):
     STRIPE_COUNT = 5
     STRIPE_WIDTH = 0.25
     STRIPE_SPACING = 0.18
@@ -488,13 +253,13 @@ def add_crosswalk(render, x, y, road_direction="horizontal", road_width=2.2):
 
         if road_direction == "horizontal":
 
-            pos = (x + offset, y, ROAD_Z + 0.015)
+            pos = (x + offset, y, road_z + 0.015)
 
             scale = (STRIPE_WIDTH / 2, road_width * 0.42, 0.01)
 
         else:
 
-            pos = (x, y + offset, ROAD_Z + 0.015)
+            pos = (x, y + offset, road_z + 0.015)
 
             scale = (road_width * 0.42, STRIPE_WIDTH / 2, 0.01)
 

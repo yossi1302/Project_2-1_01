@@ -9,7 +9,9 @@ from panda3d.core import LColorf
 import numpy as np
 
 import space
-import models
+from cities import paris, new_york
+
+CITY = "paris"  # Change to "new_york" to switch scenes
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -90,7 +92,12 @@ class Renderer:
         lens.setNearFar(1, 500)
         base.cam.node().setLens(lens)
 
-        models.load_paris(base.render, base.loader)
+        if CITY == "paris":
+            paris.load_paris(base.render, base.loader)
+        elif CITY == "new_york":
+            new_york.load_new_york(base.render, base.loader)
+        else:
+            raise ValueError(f"Unknown city: {CITY}")
 
         while not self.stop_requested.is_set():
             start_time = time.perf_counter()
