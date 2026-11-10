@@ -11,7 +11,12 @@ import numpy as np
 import space
 from cities import paris, new_york
 
-CITY = "paris"  # Change to "new_york" to switch scenes
+CITY = "new_york"  # Pick starting scene (not relevant cause not displayed)
+
+CITIES = {
+    "paris": paris.load_paris,
+    "new_york": new_york.load_new_york,
+}
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -40,13 +45,24 @@ class Renderer:
         self.view_mode = "editor"  # "editor" for a fixed 45-degree view and "parallax" for eye-tracking view
         self.camera_config = None
 
+        self.requested_city = CITY
+        self.active = threading.Event()   # set = drawing, cleared = paused
+        self.active.set()
+        
     def run(self):
         self.thread.start()
 
     def stop(self):
         self.stop_requested.set()
         if self.thread.is_alive():
+            self.active.set()
             self.thread.join(timeout=3)
+
+    def pause(self):
+            self.active.clear()
+    
+    def resume(self):
+        self.active.set()
 
     # Returns the last rendered frame as a numpy uint8 array
     def last_frame(self):
@@ -55,6 +71,13 @@ class Renderer:
 
     def configure_camera(self, config):
         self.camera_config = config
+
+    def set_city(self, name):
+        if name in CITIES:
+            self.requested_city=name
+        else:
+            raise ValueError('City not in the catalogue')
+
 
     def thread_proc(self):
         base = ShowBase(
@@ -92,14 +115,21 @@ class Renderer:
         lens.setNearFar(1, 500)
         base.cam.node().setLens(lens)
 
-        if CITY == "paris":
-            paris.load_paris(base.render, base.loader)
-        elif CITY == "new_york":
-            new_york.load_new_york(base.render, base.loader)
-        else:
-            raise ValueError(f"Unknown city: {CITY}")
+        #makes the city display a node of its own
+        scene = base.render.attachNewNode("Scene")
+        current_city = None
+
 
         while not self.stop_requested.is_set():
+            self.active.wait()
+            if self.requested_city != current_city:
+                scene.removeNode()
+                scene = base.render.attachNewNode("Scene")
+                #looks into the dictionary for the right function
+                load_city = CITIES[self.requested_city]
+                load_city(scene, base.loader)
+                current_city = self.requested_city
+
             start_time = time.perf_counter()
                 
             if self.view_mode == "editor":
