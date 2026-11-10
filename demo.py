@@ -52,6 +52,10 @@ def main():
             home.visible=True
             page.update()
 
+        async def quit_app():
+            rend.stop()
+            await page.window.close()
+
 
         city_view=ft.Stack(
             controls=[
@@ -82,7 +86,7 @@ def main():
             for name in CITIES
         ]
         home = ft.Column(
-            controls=[ft.Text("City Flights", size=40)] + city_buttons
+            controls=[ft.Text("City Flights", size=40)] + city_buttons + [ft.Button(content="Quit", on_click=quit_app)]
         )
         page.add(
             home,
@@ -118,6 +122,10 @@ def main():
 
         async def update_target():
             while True:
+                #While the menu is showing, it skips the copying and just checks again in 0.1 s
+                if not city_view.visible:
+                    await asyncio.sleep(0.1)
+                    continue
                 config = space.place_camera(state["eye"], screen)
                 rend.configure_camera(config)
 
