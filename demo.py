@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 import flet as ft
 
-from render import Renderer
+from render import Renderer, CITIES
 from space import Eye, Screen
 import space
 import track
@@ -38,24 +38,55 @@ def main():
         # Image where the render texture will get copied.
         target = ft.RawImage(fit=ft.BoxFit.CONTAIN, expand=True)
         camera_preview = ft.RawImage(fit=ft.BoxFit.CONTAIN)
+
+        def open_city(name):
+            rend.set_city(name)
+            rend.resume()
+            home.visible=False
+            city_view.visible=True
+            page.update()
+        
+        def go_home():
+            rend.pause()
+            city_view.visible=False
+            home.visible=True
+            page.update()
+
+
+        city_view=ft.Stack(
+            controls=[
+                target,
+                ft.Container(
+                    content=camera_preview,
+                    width=240,
+                    height=135,
+                    top=12,
+                    right=12,
+                    bgcolor=ft.Colors.BLACK,
+                    border_radius=8,
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                ),
+                ft.Container(
+                    content=ft.Button(content="Back", on_click=go_home),
+                    top=12,
+                    left=12,
+                ),
+            ],
+            fit=ft.StackFit.EXPAND,
+            expand=True,
+            visible=False,
+        )
+                        
+        city_buttons = [
+            ft.Button(content=name.replace("_", " ").title(),on_click=lambda e, n=name: open_city(n))
+            for name in CITIES
+        ]
+        home = ft.Column(
+            controls=[ft.Text("City Flights", size=40)] + city_buttons
+        )
         page.add(
-            ft.Stack(
-                controls=[
-                    target,
-                    ft.Container(
-                        content=camera_preview,
-                        width=240,
-                        height=135,
-                        top=12,
-                        right=12,
-                        bgcolor=ft.Colors.BLACK,
-                        border_radius=8,
-                        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
-                    ),
-                ],
-                fit=ft.StackFit.EXPAND,
-                expand=True,
-            )
+            home,
+            city_view,
         )
 
         screen = Screen(width=40, height=17.5, cam_offset=0)
