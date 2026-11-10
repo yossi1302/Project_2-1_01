@@ -47,7 +47,7 @@ class Renderer:
 
         self.requested_city = CITY
         self.active = threading.Event()   # set = drawing, cleared = paused
-        self.active.set()
+        #self.active.set()
         
     def run(self):
         self.thread.start()
