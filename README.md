@@ -35,7 +35,25 @@ The Panda3D scene is prepared with a tree of objects we prepared in advance. Thi
 
 We use an off-screen buffer since we are using a Flet GUI instead of a native Panda3D window. The Flet GUI uses a RawImage component which we can provide with a numpy array containing the pixel data. Every time a frame is rendered, which happens on a timer about 60 times per second, the image data from the frame is pushed to this Flet component.
 
-The webcam source is also sampled regularly and pushed to its own Flet RawImage component. This makes the bulk of our GUI at the moment, though in the future we will add more settings and some metrics showing what the program is doing at any moment.
+The webcam source is also sampled regularly and pushed to its own Flet RawImage component. A live eye-tracking panel sits beside the camera preview.
+
+## Eye-tracking metrics
+
+The panel refreshes five times per second and uses the last five seconds of completed tracking calls:
+
+- **Tracking FPS:** completed calls per second, including calls where no eyes were detected. This is measured throughput, not the inverse of tracker latency or the renderer's FPS.
+- **Detection rate:** the percentage of processed frames with a valid eye pair and position estimate. The panel also shows detected and processed frame counts.
+- **Median and P95 latency:** time spent inside `Tracker.find`, including colour conversion and MediaPipe inference. Camera capture, waiting for a worker thread, rendering, and GUI updates are excluded. P95 is the linearly interpolated 95th percentile of all calls in the window, including missed detections.
+- **Last detected:** time since the last valid position. Current position and eye separation disappear when a detection fails, the camera reports an error, or no tracking result has arrived for a second. The scene keeps its last known viewpoint.
+- **Estimated position:** horizontal offset, vertical offset, and distance from the screen in centimetres, plus eye separation in pixels. These estimates use the existing assumed eye spacing and focal length; they are not measurements of tracking accuracy.
+
+Before five seconds have elapsed, FPS uses the elapsed session time. Empty windows show a dash for detection and latency, rather than a misleading zero. Camera failures have a separate status and are not added as fake detector calls. The panel reports tracker failures in the app, with details in the terminal.
+
+The calculations live in `metrics.py`. To check the metrics and app integration without opening a camera or renderer, run:
+
+```bash
+python -m unittest discover -s tests -v
+```
 
 ## Future plans
 

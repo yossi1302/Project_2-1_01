@@ -17,6 +17,7 @@ import models
 class Renderer:
     def __init__(self, *, frametime):
         self.frametime = frametime  # Target frame time, in seconds
+        self.camera_config = None
 
         # Renderer runs on this thread;
         # it will continuously push out frames and is protected by render_lock.
