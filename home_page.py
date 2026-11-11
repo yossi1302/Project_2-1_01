@@ -20,12 +20,30 @@ def city_row(name, on_city):
         on_click=lambda e: on_city(name),
     )
 
+def logo():
+    city = ft.Text("City", font_family="Great Vibes", size=170, color=style.PRIMARY,
+                   style=ft.TextStyle(height=1.0))
+    flights = ft.Text("FLIGHTS", size=30, weight=ft.FontWeight.BOLD, color=style.ACCENT,
+                      style=ft.TextStyle(letter_spacing=12))
+    return ft.Container(
+        padding=ft.Padding.only(left=40, top=60),
+        content=ft.Column(
+            spacing=0,
+            controls=[
+                city,
+                # padding shifts FLIGHTS right, under the tail of "City"
+                ft.Container(content=flights, padding=ft.Padding.only(left=110)),
+            ],
+        ),
+    )
+
 def build_home(cities, on_city, on_quit):
     city_buttons = [city_row(name, on_city) for name in cities]
     left=ft.Column(
         expand=True,
+        alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         controls=[
-                ft.Text("City Flights", size=40, color=style.PRIMARY),
+                logo(),
                 ft.Button(content="Quit", on_click=on_quit),
         ]
     )

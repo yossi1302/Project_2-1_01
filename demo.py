@@ -38,6 +38,7 @@ def main():
         page.window.height = 700
         page.padding = 0
         page.bgcolor = style.BG
+        page.fonts = {"Great Vibes": "fonts/GreatVibes-Regular.ttf"}
 
         # Image where the render texture will get copied.
         target = ft.RawImage(fit=ft.BoxFit.CONTAIN, expand=True)
