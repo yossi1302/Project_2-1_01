@@ -59,6 +59,10 @@ class MetricsPanel:
                         "Position is estimated from assumed eye spacing and camera focal length.",
                         color="#94A3B8", size=11,
                     ),
+                    ft.TextButton(
+                        content=ft.Text("What do these metrics mean?", color="#93C5FD", size=12),
+                        on_click=self.show_help,
+                    ),
                 ],
                 spacing=6,
                 tight=True,
@@ -66,6 +70,72 @@ class MetricsPanel:
             width=310, left=12, top=12, padding=14,
             bgcolor="#E6101827", border_radius=8,
         )
+
+    def show_help(self, event):
+        page = event.control.page
+        explanations = [
+            ("Tracking status",
+             "Shows whether the latest frame produced a valid eye position. "
+             "Camera and tracking errors appear here too. If no new result arrives "
+             "for a second, the position is hidden until tracking resumes."),
+            ("Last 5 s / processed frames",
+             "The statistics use a moving five-second window. Processed frames "
+             "counts frames analysed by the tracker, including frames where no eyes "
+             "were found. When the app first starts, the window is shorter."),
+            ("Tracking FPS",
+             "Frames analysed per second. Higher values mean more frequent tracking "
+             "updates. This includes unsuccessful detections and is separate from "
+             "the scene's rendering FPS."),
+            ("Detection",
+             "The percentage of processed frames with a valid eye pair and position. "
+             "For example, 90% (90/100) means 90 of 100 frames succeeded. "
+             "It measures how often tracking works, not how accurate the position is. "
+             "Camera-read failures are shown as errors and are not counted as detector calls."),
+            ("Tracker latency · median",
+             "The middle tracking-call duration: about half the calls finish faster "
+             "and half slower. Lower is better. Timing includes image conversion and "
+             "eye detection, but excludes camera capture, waiting for a worker, "
+             "rendering, and display updates. One millisecond (ms) is 1/1,000 of a second."),
+            ("Tracker latency · P95",
+             "About 95% of tracking calls finish within this time; the slowest 5% "
+             "may take longer. For example, P95 = 20 ms means about 95 out of 100 "
+             "calls finish within 20 ms. Lower is better. This helps reveal slower "
+             "updates that the median can hide, but it is not the maximum delay. "
+             "Both latency statistics include calls where no eyes were detected."),
+            ("Last detected",
+             "Time since the tracker last returned a valid eye position. It grows "
+             "when tracking is lost. Never means no valid position has been found "
+             "since the app started. The scene holds its last known viewpoint during a loss."),
+            ("Horizontal / vertical position",
+             "The estimated eye midpoint relative to the screen centre, in centimetres "
+             "(cm). Horizontal is the side-to-side offset; vertical is the height. "
+             "The signs show the direction along the app's coordinate axes, "
+             "and zero is the centre."),
+            ("Distance from screen",
+             "Estimated distance straight out from the screen plane to the eye "
+             "midpoint, in centimetres. It changes as you lean towards or away "
+             "from the screen."),
+            ("Eye separation",
+             "Distance between the two detected eye centres in the camera image, "
+             "in pixels (px). It usually becomes smaller as you move away. "
+             "Head rotation can change it too. It is not the physical distance "
+             "between your eyes."),
+            ("Estimated values and dashes",
+             "Position uses an assumed eye spacing of 6.3 cm and an estimated "
+             "camera focal length. Treat it as approximate, especially when turning "
+             "your head. A dash means no current measurement is available; it "
+             "does not mean zero."),
+        ]
+        sections = []
+        for title, explanation in explanations:
+            sections.append(ft.Text(title, weight=ft.FontWeight.BOLD, size=14))
+            sections.append(ft.Text(explanation, size=13))
+        page.show_dialog(ft.AlertDialog(
+            title=ft.Text("Eye-tracking metrics explained"),
+            content=ft.Column(controls=sections, width=460, spacing=8, tight=True),
+            scrollable=True,
+            actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())],
+        ))
 
     def refresh(self, snapshot):
         def milliseconds(value):
