@@ -160,6 +160,7 @@ class Renderer:
             wait_time = self.frametime - elapsed
             if wait_time > 0:
                 time.sleep(wait_time)
+        base.destroy()
 
     def record_frame(self, tex):
         img = tex.getRamImage()

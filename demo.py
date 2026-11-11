@@ -10,6 +10,8 @@ from render import Renderer, CITIES
 from space import Eye, Screen
 import space
 import track
+import style
+from home_page import build_home
 
 CAMERA_INDEX = 0     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
 IPD_CM = 6.3        # distance between the viewer's pupils; 6.3 is the adult average
@@ -31,9 +33,11 @@ def main():
     rend = Renderer(frametime=1/60)
 
     async def gui_main(page):
-        page.title = "Eye tracking demo"
+        page.title = "City Flights"
         page.window.width = 1200
         page.window.height = 700
+        page.padding = 0
+        page.bgcolor = style.BG
 
         # Image where the render texture will get copied.
         target = ft.RawImage(fit=ft.BoxFit.CONTAIN, expand=True)
@@ -81,13 +85,7 @@ def main():
             visible=False,
         )
                         
-        city_buttons = [
-            ft.Button(content=name.replace("_", " ").title(),on_click=lambda e, n=name: open_city(n))
-            for name in CITIES
-        ]
-        home = ft.Column(
-            controls=[ft.Text("City Flights", size=40)] + city_buttons + [ft.Button(content="Quit", on_click=quit_app)]
-        )
+        home = build_home(CITIES, open_city, quit_app)
         page.add(
             home,
             city_view,
@@ -143,6 +141,7 @@ def main():
         page.run_task(track_viewer)
 
     ft.run(gui_main)
+    rend.stop()
 
 if __name__ == "__main__":
     main()
