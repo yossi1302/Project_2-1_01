@@ -49,6 +49,7 @@ def main():
             rend.resume()
             home.visible=False
             city_view.visible=True
+            loading.visible = True
             page.update()
         
         def go_home():
@@ -65,6 +66,13 @@ def main():
         city_view=ft.Stack(
             controls=[
                 target,
+                loading := ft.Container(
+                    expand=True,
+                    bgcolor=style.BG,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Text("Loading…", size=20, color=style.PRIMARY),
+                    visible=False,
+                ),
                 ft.Container(
                     content=camera_preview,
                     width=240,
@@ -125,6 +133,9 @@ def main():
                 if not city_view.visible:
                     await asyncio.sleep(0.1)
                     continue
+                if not rend.frame_is_current():
+                    await asyncio.sleep(0.02)
+                    continue
                 config = space.place_camera(state["eye"], screen)
                 rend.configure_camera(config)
 
@@ -134,6 +145,9 @@ def main():
                 # Panda3D fournit les pixels en BGR ; Flet attend du RGB.
                 frame = np.ascontiguousarray(frame[..., ::-1])
                 await target.render(frame)
+                if loading.visible:
+                    loading.visible = False
+                    page.update()
                 await asyncio.sleep(0.1)
 
         page.update()

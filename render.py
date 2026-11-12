@@ -47,7 +47,7 @@ class Renderer:
 
         self.requested_city = CITY
         self.active = threading.Event()   # set = drawing, cleared = paused
-        #self.active.set()
+        self.frame_city = None   
         
     def run(self):
         self.thread.start()
@@ -77,6 +77,10 @@ class Renderer:
             self.requested_city=name
         else:
             raise ValueError('City not in the catalogue')
+
+    def frame_is_current(self):
+        with self.render_lock:
+            return self.frame_city == self.requested_city
 
 
     def thread_proc(self):
@@ -151,7 +155,7 @@ class Renderer:
                 lens.setFocalLength(cfg.focal_length)
 
             base.graphicsEngine.renderFrame()
-            self.record_frame(render_tex)
+            self.record_frame(render_tex, current_city)
 
             # If the frame finished early
             # (which should be most of the time)
@@ -162,10 +166,11 @@ class Renderer:
                 time.sleep(wait_time)
         base.destroy()
 
-    def record_frame(self, tex):
+    def record_frame(self, tex,city):
         img = tex.getRamImage()
 
         with self.render_lock:
+            self.frame_city = city
             self.frame_array = np.frombuffer(img, dtype=np.uint8)
             self.frame_array.shape = (
                 tex.getYSize(), tex.getXSize(), tex.getNumComponents()
