@@ -19,3 +19,4 @@ repath==0.9.0
 rich==15.0.0
 six==1.17.0
 typing_extensions==4.16.0
+panda3d-gltf==1.3.0

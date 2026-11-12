@@ -7,11 +7,13 @@ import cv2
 import numpy as np
 import flet as ft
 
-from render import Renderer
+from render import Renderer, CITIES
 from space import Eye, Screen
 from metrics import TrackingMetrics
 import space
 import track
+import style
+from home_page import build_home
 
 CAMERA_INDEX = 1     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
 IPD_CM = 6.3        # distance between the viewer's pupils; 6.3 is the adult average
@@ -168,35 +170,90 @@ def main():
     rend = Renderer(frametime=1/60)
 
     async def gui_main(page):
-        page.title = "Eye tracking demo"
+        page.title = "City Flights"
         page.window.width = 1200
         page.window.height = 700
+        page.padding = 0
+        page.bgcolor = style.BG
+        page.fonts = {"Great Vibes": "fonts/GreatVibes-Regular.ttf"}
         metrics = TrackingMetrics(time.monotonic())
         panel = MetricsPanel()
+        panel.control.top = 76  # Leave room for the Menu button.
         panel.refresh(metrics.snapshot(time.monotonic()))
 
         # Image where the render texture will get copied.
         target = ft.RawImage(fit=ft.BoxFit.CONTAIN, expand=True)
         camera_preview = ft.RawImage(fit=ft.BoxFit.CONTAIN)
-        page.add(
-            ft.Stack(
-                controls=[
-                    target,
-                    ft.Container(
-                        content=camera_preview,
-                        width=240,
-                        height=135,
-                        top=12,
-                        right=12,
-                        bgcolor=ft.Colors.BLACK,
-                        border_radius=8,
-                        clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+
+        def open_city(name):
+            rend.set_city(name)
+            rend.resume()
+            home.visible=False
+            city_view.visible=True
+            loading.visible = True
+            page.update()
+
+        def go_home(_event=None):
+            rend.pause()
+            city_view.visible=False
+            home.visible=True
+            page.update()
+
+        async def quit_app(_event=None):
+            state["running"] = False
+            await asyncio.to_thread(rend.stop)
+            await page.window.close()
+
+
+        city_view=ft.Stack(
+            controls=[
+                target,
+                loading := ft.Container(
+                    expand=True,
+                    bgcolor=style.BG,
+                    alignment=ft.Alignment.CENTER,
+                    content=ft.Text("Loading…", size=20, color=style.PRIMARY),
+                    visible=False,
+                ),
+                ft.Container(
+                    content=camera_preview,
+                    width=240,
+                    height=135,
+                    top=12,
+                    right=12,
+                    bgcolor=ft.Colors.BLACK,
+                    border_radius=8,
+                    clip_behavior=ft.ClipBehavior.ANTI_ALIAS,
+                ),
+                ft.Container(
+                    content=ft.Row(
+                        tight=True,
+                        spacing=8,
+                        controls=[
+                            ft.Icon(ft.Icons.ARROW_BACK, color=style.PRIMARY, size=20),
+                            ft.Text("Menu", size=16, color=style.INK),
+                        ],
                     ),
-                    panel.control,
-                ],
-                fit=ft.StackFit.EXPAND,
-                expand=True,
-            )
+                    top=16,
+                    left=16,
+                    bgcolor=ft.Colors.WHITE,
+                    border=ft.Border.all(1, style.LINE),
+                    border_radius=10,
+                    padding=ft.Padding.symmetric(horizontal=16, vertical=10),
+                    ink=True,
+                    on_click=go_home,
+                ),
+                panel.control,
+            ],
+            fit=ft.StackFit.EXPAND,
+            expand=True,
+            visible=False,
+        )
+
+        home = build_home(CITIES, open_city, quit_app)
+        page.add(
+            home,
+            city_view,
         )
 
         screen = Screen(width=40, height=17.5, cam_offset=0)
@@ -262,23 +319,38 @@ def main():
 
         async def update_target():
             while state["running"]:
+                # Keep the menu quiet and wait for the selected city's first frame.
+                if not city_view.visible:
+                    await asyncio.sleep(0.1)
+                    continue
+                if not rend.frame_is_current():
+                    await asyncio.sleep(0.02)
+                    continue
                 config = space.place_camera(state["eye"], screen)
                 rend.configure_camera(config)
 
                 # The frame is flipped since panda3d and flet
                 # don't agree on vertical orientation.
-                await target.render(np.flip(rend.last_frame(), 0))
+                frame = np.flip(rend.last_frame(), 0)
+                # Panda3D supplies BGR pixels; Flet expects RGB.
+                frame = np.ascontiguousarray(frame[..., ::-1])
+                await target.render(frame)
+                if loading.visible:
+                    loading.visible = False
+                    page.update()
                 await asyncio.sleep(1/60)
 
         page.update()
         page.on_disconnect = disconnect
         rend.configure_camera(space.place_camera(state["eye"], screen))
+        await page.window.center()
         rend.run()
         page.run_task(update_target)
         page.run_task(track_viewer)
         page.run_task(update_metrics)
 
     ft.run(gui_main)
+    rend.stop()
 
 if __name__ == "__main__":
     main()

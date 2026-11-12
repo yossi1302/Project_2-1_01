@@ -12,7 +12,11 @@ This project involves the creation of a program which uses eye tracking to creat
 1. Create a virtual environment for Python: `python -m venv <path to venv>`
 2. Activate the virtual environment
 3. Install the required libraries: `pip install -r requirements.txt`
-4. Run the demo: `python demo.py`
+4. Run the demo from the project folder: `python demo.py`
+
+Choose Paris or New York on the home page. The city view follows your eye position and shows the live tracking metrics. Use **Menu** to return to city selection, and **Quit** on the home page to close the app. The metrics panel includes a button explaining each measurement.
+
+The Eiffel Tower model needs `panda3d-gltf`, which is included in `requirements.txt`. If you already have a virtual environment, reinstall the requirements before running the merged app. The optional Statue of Liberty model is not included; New York still loads without it.
 
 ## Main components
 
@@ -49,11 +53,7 @@ The panel refreshes five times per second and uses the last five seconds of comp
 
 Before five seconds have elapsed, FPS uses the elapsed session time. Empty windows show a dash for detection and latency, rather than a misleading zero. Camera failures have a separate status and are not added as fake detector calls. The panel reports tracker failures in the app, with details in the terminal.
 
-The calculations live in `metrics.py`. To check the metrics and app integration without opening a camera or renderer, run:
-
-```bash
-python -m unittest discover -s tests -v
-```
+The calculations live in `metrics.py`. The metrics and their help dialog remain available in both city scenes.
 
 ## Future plans
 

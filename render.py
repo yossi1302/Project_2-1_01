@@ -8,7 +8,14 @@ from panda3d.core import LColorf
 import numpy as np
 
 import space
-import models
+from cities import paris, new_york
+
+CITY = "new_york"  # Pick starting scene (not relevant cause not displayed)
+
+CITIES = {
+    "paris": paris.load_paris,
+    "new_york": new_york.load_new_york,
+}
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -35,13 +42,26 @@ class Renderer:
         # after being rendered.
         self.frame_array = np.empty((1, 1, 3), dtype=np.uint8)
 
+        self.view_mode = "parallax"  # Use "editor" for the fixed city overview.
+
+        self.requested_city = CITY
+        self.active = threading.Event()   # set = drawing, cleared = paused
+        self.frame_city = None
+
     def run(self):
         self.thread.start()
 
     def stop(self):
         self.stop_requested.set()
         if self.thread.is_alive():
+            self.active.set()
             self.thread.join(timeout=3)
+
+    def pause(self):
+        self.active.clear()
+
+    def resume(self):
+        self.active.set()
 
     # Returns the last rendered frame as a numpy uint8 array
     def last_frame(self):
@@ -50,6 +70,17 @@ class Renderer:
 
     def configure_camera(self, config):
         self.camera_config = config
+
+    def set_city(self, name):
+        if name in CITIES:
+            self.requested_city=name
+        else:
+            raise ValueError('City not in the catalogue')
+
+    def frame_is_current(self):
+        with self.render_lock:
+            return self.frame_city == self.requested_city
+
 
     def thread_proc(self):
         base = ShowBase(
@@ -81,27 +112,52 @@ class Renderer:
         disp_region = window.makeDisplayRegion()
         disp_region.setCamera(base.cam)
         disp_region.setClearColorActive(True)
-        disp_region.setClearColor(LColorf(0, 0, 0, 1))
+        disp_region.setClearColor(LColorf(0.72, 0.82, 0.88, 1))
 
         lens = PerspectiveLens()
         lens.setNearFar(1, 500)
         base.cam.node().setLens(lens)
 
-        models.load_example(base.render)
+        #makes the city display a node of its own
+        scene = base.render.attachNewNode("Scene")
+        current_city = None
+
 
         while not self.stop_requested.is_set():
+            self.active.wait()
+            if self.stop_requested.is_set():
+                break
+            requested_city = self.requested_city
+            if requested_city != current_city:
+                scene.removeNode()
+                scene = base.render.attachNewNode("Scene")
+                #looks into the dictionary for the right function
+                load_city = CITIES[requested_city]
+                load_city(scene, base.loader)
+                current_city = requested_city
+
             start_time = time.perf_counter()
 
-            if self.camera_config != None:
+            if self.view_mode == "editor":
+                base.cam.setPos(45, -45, 55)
+                base.cam.lookAt(0, 10, 0)
+
+                lens.setFilmOffset(0, 0)
+                lens.setFilmSize(60, 35)
+                lens.setFocalLength(80)
+
+            elif self.camera_config is not None:
                 cfg = self.camera_config
+
                 base.cam.setPos(*cfg.pos)
                 base.cam.setHpr(0, 0, 0)
+
                 lens.setFilmSize(cfg.film_size)
                 lens.setFilmOffset(cfg.film_offset)
                 lens.setFocalLength(cfg.focal_length)
 
             base.graphicsEngine.renderFrame()
-            self.record_frame(render_tex)
+            self.record_frame(render_tex, current_city)
 
             # If the frame finished early
             # (which should be most of the time)
@@ -110,11 +166,13 @@ class Renderer:
             wait_time = self.frametime - elapsed
             if wait_time > 0:
                 time.sleep(wait_time)
+        base.destroy()
 
-    def record_frame(self, tex):
+    def record_frame(self, tex,city):
         img = tex.getRamImage()
 
         with self.render_lock:
+            self.frame_city = city
             self.frame_array = np.frombuffer(img, dtype=np.uint8)
             self.frame_array.shape = (
                 tex.getYSize(), tex.getXSize(), tex.getNumComponents()
