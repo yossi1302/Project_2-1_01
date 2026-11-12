@@ -151,6 +151,7 @@ def main():
                 await asyncio.sleep(0.1)
 
         page.update()
+        await page.window.center()
         rend.run()
         page.run_task(update_target)
         page.run_task(track_viewer)
