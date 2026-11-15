@@ -1,10 +1,10 @@
-from email.mime import base
+import gc
 import threading
 import time
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import Texture, FrameBufferProperties, WindowProperties, GraphicsPipe, GraphicsOutput, PerspectiveLens
-from panda3d.core import LColorf
+from panda3d.core import LColorf, RenderState, TransformState, TexturePool, ModelPool
 
 import numpy as np
 
@@ -17,6 +17,11 @@ CITIES = {
     "paris": paris.load_paris,
     "new_york": new_york.load_new_york,
 }
+
+# Merge the static city geometry into a handful of big meshes once it is loaded
+# (Paris: ~520 separate draw calls per frame -> 3). Looks identical; set to
+# False to compare the "Panda3D sans capture" timings in the console.
+FLATTEN_SCENE = True
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -38,11 +43,15 @@ class Renderer:
         # Set this flag to ask the render thread to finish
         self.stop_requested = threading.Event()
 
-        # This is where the last frame is always stored
-        # after being rendered.
-        self.frame_array = np.empty((1, 1, 3), dtype=np.uint8)
+        # The last frame is always stored here after being rendered, already
+        # converted to what Flet wants: top-down RGBA, alpha = 255.
+        # Two buffers are reused forever (no allocation per frame): the render
+        # thread fills the spare one, then swaps it in under render_lock.
+        self.frame_array = np.full((1, 1, 4), 255, dtype=np.uint8)
+        self._spare_frame = np.full((1, 1, 4), 255, dtype=np.uint8)
+        self.frame_id = 0   # incremented for every frame stored
 
-        self.view_mode = "editor"  # "editor" for a fixed 45-degree view and "parallax" for eye-tracking view
+        self.view_mode = "parallax"  # "editor" for a fixed 45-degree view and "parallax" for eye-tracking view
         self.camera_config = None
 
         self.requested_city = CITY
@@ -64,10 +73,19 @@ class Renderer:
     def resume(self):
         self.active.set()
 
-    # Returns the last rendered frame as a numpy uint8 array
+    # Returns the last rendered frame as a numpy uint8 array (H, W, 4), RGBA, top-down.
     def last_frame(self):
         with self.render_lock:
             return self.frame_array
+
+    # Returns (frame_id, frame) if a frame of the requested city that is newer
+    # than `last_id` is available, otherwise None. Lets the GUI push each
+    # frame exactly once, and never a frame of the previous city.
+    def next_frame(self, last_id):
+        with self.render_lock:
+            if self.frame_city != self.requested_city or self.frame_id == last_id:
+                return None
+            return self.frame_id, self.frame_array
 
     def configure_camera(self, config):
         self.camera_config = config
@@ -90,12 +108,17 @@ class Renderer:
         )
         base.disableMouse()
 
+        # ShowBase also opens a default offscreen window that uses the same
+        # camera as ours, so every frame was being rendered twice (the second
+        # copy was never read). Switch that one off.
+        base.win.setActive(False)
+
         fb_prop = FrameBufferProperties()
         fb_prop.setRgbColor(True)
         fb_prop.setRgbaBits(8, 8, 8, 0)
         fb_prop.setDepthBits(24)
 
-        win_prop = WindowProperties.size(1200, 700)
+        win_prop = WindowProperties.size(800, 450)
 
         # Create an offscreen window to render to.
         window = base.graphicsEngine.makeOutput(
@@ -108,7 +131,8 @@ class Renderer:
         render_tex = Texture()
         window.addRenderTexture(
             render_tex,
-            GraphicsOutput.RTMCopyRam, GraphicsOutput.RTPColor
+            GraphicsOutput.RTMCopyRam,
+            GraphicsOutput.RTPColor
         )
         disp_region = window.makeDisplayRegion()
         disp_region.setCamera(base.cam)
@@ -122,16 +146,20 @@ class Renderer:
         #makes the city display a node of its own
         scene = base.render.attachNewNode("Scene")
         current_city = None
-
+        last_log = time.perf_counter()
 
         while not self.stop_requested.is_set():
             self.active.wait()
             if self.requested_city != current_city:
                 scene.removeNode()
+                self.free_unused_memory()
                 scene = base.render.attachNewNode("Scene")
                 #looks into the dictionary for the right function
                 load_city = CITIES[self.requested_city]
                 load_city(scene, base.loader)
+                if FLATTEN_SCENE:
+                    scene.flattenStrong()
+                gc.collect()   # the glTF loader leaves reference cycles behind
                 current_city = self.requested_city
 
             start_time = time.perf_counter()
@@ -154,8 +182,16 @@ class Renderer:
                 lens.setFilmOffset(cfg.film_offset)
                 lens.setFocalLength(cfg.focal_length)
 
+            start = time.perf_counter()
+
             base.graphicsEngine.renderFrame()
             self.record_frame(render_tex, current_city)
+
+            render_ms = (time.perf_counter() - start) * 1000
+
+            if time.perf_counter() - last_log >= 5:
+                print(f"Panda3D sans capture : {render_ms:.1f} ms")
+                last_log = time.perf_counter()
 
             # If the frame finished early
             # (which should be most of the time)
@@ -166,13 +202,36 @@ class Renderer:
                 time.sleep(wait_time)
         base.destroy()
 
-    def record_frame(self, tex,city):
-        img = tex.getRamImage()
+    # Panda3D and the glTF loader keep a lot of garbage alive after a city is
+    # removed (Python reference cycles, pooled textures/models, cached render
+    # states). Without this, memory grew by several MB on every city change.
+    def free_unused_memory(self):
+        gc.collect()
+        RenderState.garbageCollect()
+        TransformState.garbageCollect()
+        TexturePool.releaseAllTextures()
+        ModelPool.releaseAllModels()
+
+    def record_frame(self, tex, city):
+        h, w, c = tex.getYSize(), tex.getXSize(), tex.getNumComponents()
+        if tex.getRamImageSize() == 0:
+            return   # nothing copied back from the GPU yet
+
+        # Panda3D gives bottom-up BGR(A); Flet wants top-down RGBA. The flip and
+        # the channel swap are done here, on the render thread, straight into
+        # a reused buffer instead of allocating several new arrays per frame on
+        # the GUI thread.
+        src = np.frombuffer(tex.getRamImage(), dtype=np.uint8).reshape(h, w, c)[::-1]
+
+        out = self._spare_frame
+        if out.shape[:2] != (h, w):
+            out = np.full((h, w, 4), 255, dtype=np.uint8)
+        out[..., 0] = src[..., 2]
+        out[..., 1] = src[..., 1]
+        out[..., 2] = src[..., 0]
 
         with self.render_lock:
+            self._spare_frame = self.frame_array
+            self.frame_array = out
             self.frame_city = city
-            self.frame_array = np.frombuffer(img, dtype=np.uint8)
-            self.frame_array.shape = (
-                tex.getYSize(), tex.getXSize(), tex.getNumComponents()
-            )
-
+            self.frame_id += 1
