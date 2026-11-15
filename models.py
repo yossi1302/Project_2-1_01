@@ -33,7 +33,7 @@ def normalized(*args):
 
 def make_square(texture_path, x1, y1, z1, x2, y2, z2):
     format = GeomVertexFormat.getV3n3t2()
-    vdata = GeomVertexData('square', format, Geom.UHDynamic)
+    vdata = GeomVertexData('square', format, Geom.UHStatic)
 
     vertex = GeomVertexWriter(vdata, 'vertex')
     normal = GeomVertexWriter(vdata, 'normal')
@@ -70,7 +70,7 @@ def make_square(texture_path, x1, y1, z1, x2, y2, z2):
     # Quads aren't directly supported by the Geom interface
     # you might be interested in the CardMaker class if you are
     # interested in rectangle though
-    tris = GeomTriangles(Geom.UHDynamic)
+    tris = GeomTriangles(Geom.UHStatic)
     tris.addVertices(0, 1, 3)
     tris.addVertices(1, 2, 3)
 
@@ -79,35 +79,69 @@ def make_square(texture_path, x1, y1, z1, x2, y2, z2):
 
     return square
 
-def add_cube(render, texture_path):
-    tex1 = Texture("Texture")
-    tex1.setup2dTexture()
-    tex1.read(texture_path)
-    tex1.setMagfilter(Texture.FTNearest)
-    tex1.setMinfilter(Texture.FTNearest)
-    state_a = RenderState.make(TextureAttrib.make(tex1))
+# --- Cubes -----------------------------------------------------------------
+# Every cube in a city has its own GeomNode (a node carries its own position,
+# scale and colour), but they all point at ONE shared Geom, so the vertex data
+# exists once in memory and is uploaded to the GPU once.
+#
+# Do NOT attach a single shared GeomNode to many parents instead: in Panda3D the
+# transform/colour live on the node itself, so every "cube" would end up at the
+# same place with the same colour and most of the city would disappear.
+_SHARED_CUBE_GEOM = None
+_TEXTURE_CACHE = {}
 
-    # Note: it isn't particularly efficient to make every face as a separate Geom.
-    # instead, it would be better to create one Geom holding all of the faces.
-    square0 = make_square(texture_path, -1, -1, -1, 1, -1, 1)
-    square1 = make_square(texture_path, -1, 1, -1, 1, 1, 1)
-    square2 = make_square(texture_path, -1, 1, 1, 1, -1, 1)
-    square3 = make_square(texture_path, -1, 1, -1, 1, -1, -1)
-    square4 = make_square(texture_path, -1, -1, -1, -1, 1, 1)
-    square5 = make_square(texture_path, 1, -1, -1, 1, 1, 1)
-    snode = GeomNode('square')
-    snode.addGeom(square0, state_a)
-    snode.addGeom(square1, state_a)
-    snode.addGeom(square2, state_a)
-    snode.addGeom(square3, state_a)
-    snode.addGeom(square4, state_a)
-    snode.addGeom(square5, state_a)
+def get_shared_cube_geom():
+    global _SHARED_CUBE_GEOM
 
-    cube = render.attachNewNode(snode)
-    # Static geometry for buildings: no rotation
+    if _SHARED_CUBE_GEOM is None:
+        vdata = GeomVertexData("cube", GeomVertexFormat.getV3n3t2(), Geom.UHStatic)
+        vertex = GeomVertexWriter(vdata, "vertex")
+        normal = GeomVertexWriter(vdata, "normal")
+        texcoord = GeomVertexWriter(vdata, "texcoord")
+        tris = GeomTriangles(Geom.UHStatic)
 
-    # OpenGl by default only draws "front faces" (polygons whose vertices are
-    # specified CCW).
+        # 6 faces x 4 vertices, so each face gets its own normal and UVs.
+        for axis in range(3):
+            u_axis, v_axis = (axis + 1) % 3, (axis + 2) % 3
+            for sign in (-1, 1):
+                n = [0, 0, 0]
+                n[axis] = sign
+                corners = [(-1, -1), (1, -1), (1, 1), (-1, 1)]
+                if sign < 0:
+                    corners.reverse()  # keep the winding counter-clockwise seen from outside
+                base = vdata.getNumRows()
+                for cu, cv in corners:
+                    p = list(n)
+                    p[u_axis], p[v_axis] = cu, cv
+                    vertex.addData3(*p)
+                    normal.addData3(*n)
+                    texcoord.addData2f((cu + 1) / 2, (cv + 1) / 2)
+                tris.addVertices(base, base + 1, base + 2)
+                tris.addVertices(base, base + 2, base + 3)
+
+        geom = Geom(vdata)
+        geom.addPrimitive(tris)
+        _SHARED_CUBE_GEOM = geom
+
+    return _SHARED_CUBE_GEOM
+
+def get_texture(texture_path):
+    # Each image file is read from disk once, not once per cube.
+    tex = _TEXTURE_CACHE.get(texture_path)
+    if tex is None:
+        tex = Texture(texture_path)
+        tex.read(texture_path)
+        tex.setMagfilter(Texture.FTNearest)
+        tex.setMinfilter(Texture.FTNearest)
+        _TEXTURE_CACHE[texture_path] = tex
+    return tex
+
+def add_cube(render, texture_path=None):
+    node = GeomNode("cube")
+    node.addGeom(get_shared_cube_geom())
+    cube = render.attachNewNode(node)
+    if texture_path:
+        cube.setTexture(get_texture(texture_path))
     cube.setTwoSided(True)
     return cube
 
@@ -152,7 +186,7 @@ def add_model(render, file_path, position, scale=1):
     return model
 
 def add_colored_cube(render, position, scale, color):
-    cube = add_cube(render, "./assets/example1.png")
+    cube = add_cube(render)
 
     cube.setPos(*position)
     cube.setScale(*scale)

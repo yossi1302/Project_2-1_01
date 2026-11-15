@@ -1,10 +1,11 @@
 import time
+import os
+import psutil
 import asyncio
 import logging
 import math
 
 import cv2
-import numpy as np
 import flet as ft
 
 from render import Renderer, CITIES
@@ -18,18 +19,19 @@ from home_page import build_home
 CAMERA_INDEX = 1     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
 IPD_CM = 6.3        # distance between the viewer's pupils; 6.3 is the adult average
 FOCAL_PX = 1000     # camera focal length in pixels, for 1280x720 frames (estimate, not yet measured)
+TRACK_WIDTH = 320
 
 # Convert eye positions in camera pixels to an Eye relative to the screen.
 # The eye separation works as a ruler: IPD_CM / separation_px is cm per pixel
 # at the viewer's distance, so x and z only depend on IPD_CM.
-def eye_from_tracking(eyes, frame_w, frame_h, screen):
+def eye_from_tracking(eyes, frame_w, frame_h, screen, focal_px=FOCAL_PX):
     if eyes is None or not math.isfinite(eyes.separation_px) or eyes.separation_px <= 0:
         return None
     cm_per_px = IPD_CM / eyes.separation_px
     mid = eyes.midpoint
     eye = Eye(
         x=-(mid.x - frame_w / 2) * cm_per_px,  # webcam image isn't mirrored
-        y=FOCAL_PX * cm_per_px,
+        y=focal_px * cm_per_px,
         z=screen.cam_offset - (mid.y - frame_h / 2) * cm_per_px,
     )
     return eye if all(math.isfinite(value) for value in (eye.x, eye.y, eye.z)) else None
@@ -167,7 +169,7 @@ class MetricsPanel:
             )
 
 def main():
-    rend = Renderer(frametime=1/60)
+    rend = Renderer(frametime=1/30)
 
     async def gui_main(page):
         page.title = "City Flights"
@@ -260,6 +262,12 @@ def main():
         # Keep the scene at the last known position if tracking drops out.
         state = {"eye": Eye(x=0, y=25, z=10), "running": True}
 
+        async def monitor_memory():
+            process = psutil.Process(os.getpid())
+            while state["running"]:
+                print(f"Memory usage: {process.memory_info().rss / (1024 * 1024):.1f} MB")
+                await asyncio.sleep(5)
+
         async def track_viewer():
             cap = tracker = None
             try:
@@ -267,22 +275,32 @@ def main():
                 if not cap.isOpened():
                     metrics.unavailable("Camera unavailable")
                     return
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
                 tracker = await asyncio.to_thread(track.Tracker)
-                start, last_ts = time.monotonic(), -1
+                start, last_ts, last_preview = time.monotonic(), -1, 0.0
                 while state["running"]:
+                    if not city_view.visible:
+                        await asyncio.sleep(0.1)
+                        continue
                     ok, frame = await asyncio.to_thread(cap.read)
                     if not ok:
                         metrics.unavailable("Camera frame unavailable")
                         await asyncio.sleep(0.1)
                         continue
-                    # VIDEO mode needs strictly increasing timestamps.
+                    h, w = frame.shape[:2]
+                    if not w or not h:
+                        continue
+                    small = cv2.resize(frame, (TRACK_WIDTH, max(1, round(TRACK_WIDTH * h / w))),
+                                       interpolation=cv2.INTER_AREA)
+                    small_h, small_w = small.shape[:2]
                     last_ts = max(int((time.monotonic() - start) * 1000), last_ts + 1)
                     result, latency_ms = await asyncio.to_thread(
-                        timed_tracking, tracker, frame, last_ts
+                        timed_tracking, tracker, small, last_ts
                     )
                     completed_at = time.monotonic()
-                    h, w = frame.shape[:2]
-                    eye = eye_from_tracking(result.eyes, w, h, screen) if result.detected else None
+                    eye = (eye_from_tracking(result.eyes, small_w, small_h, screen,
+                                             focal_px=FOCAL_PX * small_w / w)
+                           if result.detected else None)
                     metrics.record(
                         completed_at, latency_ms,
                         position_cm=(eye.x, eye.y, eye.z) if eye else None,
@@ -290,14 +308,16 @@ def main():
                     )
                     if eye:
                         state["eye"] = eye
+                        rend.configure_camera(space.place_camera(eye, screen))
                     if not state["running"]:
                         break
-
-                    # Mirror only the preview; track the original frame.
-                    scale = min(240 / w, 135 / h)
-                    preview = cv2.resize(frame, (max(1, round(w * scale)), max(1, round(h * scale))))
-                    preview = cv2.cvtColor(cv2.flip(preview, 1), cv2.COLOR_BGR2RGB)
-                    await camera_preview.render(preview)
+                    if completed_at - last_preview >= 0.1:
+                        last_preview = completed_at
+                        preview = cv2.cvtColor(cv2.flip(small, 1), cv2.COLOR_BGR2RGBA)
+                        try:
+                            await camera_preview.render(preview, premultiplied=True)
+                        except TimeoutError:
+                            pass
             except Exception:
                 logging.exception("Eye tracking stopped")
                 metrics.unavailable("Tracking error — see terminal")
@@ -318,27 +338,24 @@ def main():
             await asyncio.to_thread(rend.stop)
 
         async def update_target():
+            last_id = -1
             while state["running"]:
-                # Keep the menu quiet and wait for the selected city's first frame.
                 if not city_view.visible:
+                    last_id = -1
                     await asyncio.sleep(0.1)
                     continue
-                if not rend.frame_is_current():
-                    await asyncio.sleep(0.02)
+                item = rend.next_frame(last_id)
+                if item is None:
+                    await asyncio.sleep(0.004)
                     continue
-                config = space.place_camera(state["eye"], screen)
-                rend.configure_camera(config)
-
-                # The frame is flipped since panda3d and flet
-                # don't agree on vertical orientation.
-                frame = np.flip(rend.last_frame(), 0)
-                # Panda3D supplies BGR pixels; Flet expects RGB.
-                frame = np.ascontiguousarray(frame[..., ::-1])
-                await target.render(frame)
+                last_id, frame = item
+                try:
+                    await target.render(frame, premultiplied=True)
+                except TimeoutError:
+                    continue
                 if loading.visible:
                     loading.visible = False
                     page.update()
-                await asyncio.sleep(1/60)
 
         page.update()
         page.on_disconnect = disconnect
@@ -348,6 +365,7 @@ def main():
         page.run_task(update_target)
         page.run_task(track_viewer)
         page.run_task(update_metrics)
+        page.run_task(monitor_memory)
 
     ft.run(gui_main)
     rend.stop()
