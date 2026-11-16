@@ -46,33 +46,98 @@ def timed_tracking(tracker, frame, timestamp):
 
 class MetricsPanel:
     def __init__(self):
-        self.status = ft.Text("Waiting for camera", color="#FBBF24", size=14)
-        self.summary = ft.Text(color="#CBD5E1", size=12)
-        self.values = ft.Text(color="#FFFFFF", size=13)
-        self.position = ft.Text(color="#FFFFFF", size=13)
+        self.status = ft.Text("Waiting for camera", color=style.MUTED, size=12,
+                              expand=True)
+        self.status_dot = ft.Container(width=7, height=7, border_radius=4,
+                                       bgcolor=style.ACCENT)
+        self.summary = ft.Text(color=style.MUTED, size=11)
+        self.fps = ft.Text("—", color=style.PRIMARY, size=26, weight=ft.FontWeight.W_600)
+        self.detection = ft.Text("—", color=style.PRIMARY, size=26,
+                                 weight=ft.FontWeight.W_600)
+        self.detection_count = ft.Text("0/0 frames", color=style.MUTED, size=11)
+
+        def stat_card(label, value, detail):
+            return ft.Container(
+                expand=True, bgcolor=style.SOFT, border_radius=12, padding=12,
+                content=ft.Column(spacing=2, tight=True, controls=[
+                    ft.Text(label, color=style.MUTED, size=11), value, detail,
+                ]),
+            )
+
+        def metric_row(label, value):
+            return ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[ft.Text(label, color=style.MUTED, size=12), value],
+            )
+
+        def value_text():
+            return ft.Text("—", color=style.INK, size=12, weight=ft.FontWeight.W_600)
+
+        def section_title(label):
+            return ft.Text(label, color=style.PRIMARY, size=11,
+                           weight=ft.FontWeight.BOLD,
+                           style=ft.TextStyle(letter_spacing=1.2))
+
+        self.median = value_text()
+        self.p95 = value_text()
+        self.last_seen = value_text()
+        self.horizontal = value_text()
+        self.vertical = value_text()
+        self.distance = value_text()
+        self.separation = value_text()
         self.control = ft.Container(
             content=ft.Column(
                 controls=[
-                    ft.Text("Eye tracking", color="#FFFFFF", size=16,
-                            weight=ft.FontWeight.BOLD),
-                    self.status,
-                    self.summary,
-                    self.values,
-                    self.position,
+                    ft.Row(spacing=10, controls=[
+                        ft.Container(
+                            content=ft.Icon(ft.Icons.VISIBILITY_OUTLINED,
+                                            color=style.PRIMARY, size=20),
+                            bgcolor=style.SOFT, border_radius=10,
+                            width=36, height=36, alignment=ft.Alignment.CENTER,
+                        ),
+                        ft.Column(spacing=2, tight=True, controls=[
+                            ft.Text("Eye tracking", color=style.INK, size=17,
+                                    weight=ft.FontWeight.W_600),
+                            self.summary,
+                        ]),
+                    ]),
+                    ft.Row(spacing=7, controls=[self.status_dot, self.status]),
+                    ft.Row(spacing=8, controls=[
+                        stat_card("Tracking FPS", self.fps,
+                                  ft.Text("frames / second", color=style.MUTED, size=11)),
+                        stat_card("Detection", self.detection, self.detection_count),
+                    ]),
+                    ft.Column(spacing=7, tight=True, controls=[
+                        section_title("TRACKER LATENCY"),
+                        metric_row("Median", self.median),
+                        metric_row("P95", self.p95),
+                        metric_row("Last detected", self.last_seen),
+                    ]),
+                    ft.Divider(height=1, thickness=1, color=style.LINE),
+                    ft.Column(spacing=7, tight=True, controls=[
+                        section_title("ESTIMATED POSITION"),
+                        metric_row("Horizontal", self.horizontal),
+                        metric_row("Vertical", self.vertical),
+                        metric_row("Distance from screen", self.distance),
+                        metric_row("Eye separation", self.separation),
+                    ]),
                     ft.Text(
                         "Position is estimated from assumed eye spacing and camera focal length.",
-                        color="#94A3B8", size=11,
+                        color=style.MUTED, size=11,
                     ),
                     ft.TextButton(
-                        content=ft.Text("What do these metrics mean?", color="#93C5FD", size=12),
+                        content=ft.Text("What do these metrics mean?", color=style.PRIMARY,
+                                        size=12),
                         on_click=self.show_help,
+                        style=ft.ButtonStyle(padding=ft.Padding.symmetric(horizontal=0, vertical=4)),
                     ),
                 ],
-                spacing=6,
+                spacing=12,
                 tight=True,
             ),
-            width=310, left=12, top=12, padding=14,
-            bgcolor="#E6101827", border_radius=8,
+            width=320, left=16, top=12, padding=16,
+            bgcolor=ft.Colors.WHITE, border_radius=16,
+            border=ft.Border.all(1, style.LINE),
         )
 
     def show_help(self, event):
@@ -132,13 +197,16 @@ class MetricsPanel:
         ]
         sections = []
         for title, explanation in explanations:
-            sections.append(ft.Text(title, weight=ft.FontWeight.BOLD, size=14))
-            sections.append(ft.Text(explanation, size=13))
+            sections.append(ft.Text(title, weight=ft.FontWeight.BOLD, size=14, color=style.PRIMARY))
+            sections.append(ft.Text(explanation, size=13, color=style.INK))
         page.show_dialog(ft.AlertDialog(
-            title=ft.Text("Eye-tracking metrics explained"),
+            title=ft.Text("Eye-tracking metrics explained", color=style.INK),
+            bgcolor=style.BG,
+            shape=ft.RoundedRectangleBorder(radius=16),
             content=ft.Column(controls=sections, width=460, spacing=8, tight=True),
             scrollable=True,
-            actions=[ft.TextButton("Close", on_click=lambda _: page.pop_dialog())],
+            actions=[ft.TextButton("Close", style=ft.ButtonStyle(color=style.PRIMARY),
+                                   on_click=lambda _: page.pop_dialog())],
         ))
 
     def refresh(self, snapshot):
@@ -148,25 +216,25 @@ class MetricsPanel:
         detection = "—" if snapshot.detection_pct is None else f"{snapshot.detection_pct:.1f}%"
         age = "Never" if snapshot.last_seen_seconds is None else f"{snapshot.last_seen_seconds:.1f} s ago"
         self.status.value = snapshot.status
-        self.status.color = "#4ADE80" if snapshot.status == "Eyes detected" else "#FBBF24"
+        self.status.color = style.PRIMARY if snapshot.status == "Eyes detected" else style.MUTED
+        self.status_dot.bgcolor = style.PRIMARY if snapshot.status == "Eyes detected" else style.ACCENT
         self.summary.value = f"Last 5 s · {snapshot.samples} processed frames"
-        self.values.value = (
-            f"Tracking FPS: {snapshot.fps:.1f}\n"
-            f"Detection: {detection} ({snapshot.detected}/{snapshot.samples})\n"
-            f"Tracker latency · median: {milliseconds(snapshot.median_ms)}\n"
-            f"Tracker latency · P95: {milliseconds(snapshot.p95_ms)}\n"
-            f"Last detected: {age}"
-        )
+        self.fps.value = f"{snapshot.fps:.1f}"
+        self.detection.value = detection
+        self.detection_count.value = f"{snapshot.detected}/{snapshot.samples} frames"
+        self.median.value = milliseconds(snapshot.median_ms)
+        self.p95.value = milliseconds(snapshot.p95_ms)
+        self.last_seen.value = age
         if snapshot.position_cm is None:
-            self.position.value = "Estimated position: —\nEye separation: —"
+            for value in (self.horizontal, self.vertical, self.distance, self.separation):
+                value.value = "—"
         else:
             x, distance, z = snapshot.position_cm
-            self.position.value = (
-                f"Estimated position (cm)\n"
-                f"Horizontal: {x:+.1f} · Vertical: {z:+.1f}\n"
-                f"Distance from screen: {distance:.1f}\n"
-                f"Eye separation: {snapshot.separation_px:.1f} px"
-            )
+            self.horizontal.value = f"{x:+.1f} cm"
+            self.vertical.value = f"{z:+.1f} cm"
+            self.distance.value = f"{distance:.1f} cm"
+            self.separation.value = f"{snapshot.separation_px:.1f} px"
+
 
 def main():
     rend = Renderer(frametime=1/30)
