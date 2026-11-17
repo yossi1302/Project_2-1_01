@@ -6,6 +6,9 @@ import cv2
 import numpy as np
 
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "model", "face_landmarker.task")
+BLINK_THRESHOLD = 0.6   # score above this = eyes closed
+OPEN_THRESHOLD = 0.3    # score below this = eyes open again
+BLINK_HOLD_MS = 500     # eyes must stay closed this long to count
 
 # Point in image pixel coordinates.
 @dataclass(frozen=True)
@@ -34,6 +37,7 @@ class EyePair:
 class TrackingResult:
     detected: bool
     eyes: EyePair | None = None
+    blink: float = 0.0
 
     @classmethod
     def missed(cls):
@@ -49,6 +53,7 @@ class Tracker:
             ),
             running_mode=mp.tasks.vision.RunningMode.VIDEO,
             num_faces=1,
+            output_face_blendshapes=True,
             min_face_detection_confidence=0.5,
             min_face_presence_confidence=0.5,
             min_tracking_confidence=0.5,
@@ -80,7 +85,11 @@ class Tracker:
                 first=_landmark_midpoint(landmarks, 33, 133, width, height),
                 second=_landmark_midpoint(landmarks, 362, 263, width, height),
             )
-        return TrackingResult(detected=True, eyes=eyes)
+        blink = 0.0
+        if result.face_blendshapes:
+            scores = {c.category_name: c.score for c in result.face_blendshapes[0]}
+            blink = min(scores["eyeBlinkLeft"], scores["eyeBlinkRight"])
+        return TrackingResult(detected=True, eyes=eyes, blink=blink)
 
     def close(self):
         self.landmarker.close()
@@ -92,3 +101,24 @@ def _landmark_midpoint(landmarks, first_index, second_index, width, height):
         x=(first.x + second.x) * width / 2.0,
         y=(first.y + second.y) * height / 2.0,
     )
+
+#  deliberate blinks
+class BlinkDetector:
+    def __init__(self):
+        self.closed_since = None
+        self.fired = False
+
+    # Returns True once per deliberate blink.
+    def update(self, score, timestamp):
+        if score < OPEN_THRESHOLD:
+            self.closed_since = None
+            self.fired = False
+            return False
+        if score < BLINK_THRESHOLD:
+            return False
+        if self.closed_since is None:
+            self.closed_since = timestamp
+        if not self.fired and timestamp - self.closed_since >= BLINK_HOLD_MS:
+            self.fired = True
+            return True
+        return False
