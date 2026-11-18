@@ -4,6 +4,7 @@ import psutil
 import asyncio
 import logging
 import math
+import random as rand
 
 import cv2
 import flet as ft
@@ -199,7 +200,16 @@ def main():
             rend.pause()
             city_view.visible=False
             home.visible=True
+            state["flying"] = False
             page.update()
+
+        def fly():
+            others = [name for name in CITIES if name != rend.requested_city]
+            open_city(rand.choice(others))
+
+        def start_flying(_event=None):
+            state["flying"] = True
+            fly()
 
         async def quit_app(_event=None):
             state["running"] = False
@@ -252,7 +262,7 @@ def main():
             visible=False,
         )
 
-        home = build_home(CITIES, open_city, quit_app)
+        home = build_home(CITIES, open_city, quit_app, start_flying)
         page.add(
             home,
             city_view,
@@ -299,8 +309,8 @@ def main():
                         timed_tracking, tracker, small, last_ts
                     )
                     completed_at = time.monotonic()
-                    if blinks.update(result.blink, last_ts):
-                        print("BLINK")
+                    if blinks.update(result.blink, last_ts) and state["flying"]:
+                        fly()
                     eye = (eye_from_tracking(result.eyes, small_w, small_h, screen,
                                              focal_px=FOCAL_PX * small_w / w)
                            if result.detected else None)
