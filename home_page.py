@@ -79,7 +79,7 @@ def try_out_card(on_start=None):
         ),
     )
 
-def build_home(cities, on_city, on_quit):
+def build_home(cities, on_city, on_quit, on_fly):
     city_buttons = [city_row(name, on_city) for name in cities]
     left=ft.Column(
         expand=True,
@@ -92,7 +92,7 @@ def build_home(cities, on_city, on_quit):
                         spacing=24,
                         vertical_alignment=ft.CrossAxisAlignment.CENTER,
                         controls=[
-                            try_out_card(),
+                            try_out_card(on_fly),
                             ft.Row(spacing=10, controls=[
                                 square_button(ft.Icons.SETTINGS, "Settings"),
                                 square_button(ft.Icons.DARK_MODE, "Night mode"),

@@ -4,6 +4,7 @@ import psutil
 import asyncio
 import logging
 import math
+import random as rand
 
 import cv2
 import flet as ft
@@ -16,7 +17,7 @@ import track
 import style
 from home_page import build_home
 
-CAMERA_INDEX = 1     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
+CAMERA_INDEX = 0     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
 IPD_CM = 6.3        # distance between the viewer's pupils; 6.3 is the adult average
 FOCAL_PX = 1000     # camera focal length in pixels, for 1280x720 frames (estimate, not yet measured)
 TRACK_WIDTH = 320
@@ -267,7 +268,16 @@ def main():
             rend.pause()
             city_view.visible=False
             home.visible=True
+            state["flying"] = False
             page.update()
+
+        def fly():
+            others = [name for name in CITIES if name != rend.requested_city]
+            open_city(rand.choice(others))
+
+        def start_flying(_event=None):
+            state["flying"] = True
+            fly()
 
         async def quit_app(_event=None):
             state["running"] = False
@@ -320,7 +330,7 @@ def main():
             visible=False,
         )
 
-        home = build_home(CITIES, open_city, quit_app)
+        home = build_home(CITIES, open_city, quit_app, start_flying)
         page.add(
             home,
             city_view,
@@ -340,6 +350,7 @@ def main():
             cap = tracker = None
             try:
                 cap = await asyncio.to_thread(cv2.VideoCapture, CAMERA_INDEX)
+                blinks = track.BlinkDetector()
                 if not cap.isOpened():
                     metrics.unavailable("Camera unavailable")
                     return
@@ -366,6 +377,8 @@ def main():
                         timed_tracking, tracker, small, last_ts
                     )
                     completed_at = time.monotonic()
+                    if blinks.update(result.blink, last_ts) and state["flying"]:
+                        fly()
                     eye = (eye_from_tracking(result.eyes, small_w, small_h, screen,
                                              focal_px=FOCAL_PX * small_w / w)
                            if result.detected else None)
