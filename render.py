@@ -4,7 +4,9 @@ import time
 
 from direct.showbase.ShowBase import ShowBase
 from panda3d.core import Texture, FrameBufferProperties, WindowProperties, GraphicsPipe, GraphicsOutput, PerspectiveLens
-from panda3d.core import LColorf, RenderState, TransformState, TexturePool, ModelPool
+from panda3d.core import LColorf, Point3, RenderState, TransformState, TexturePool, ModelPool
+
+import math
 
 import numpy as np
 
@@ -22,6 +24,28 @@ CITIES = {
 # (Paris: ~520 separate draw calls per frame -> 3). Looks identical; set to
 # False to compare the "Panda3D sans capture" timings in the console.
 FLATTEN_SCENE = True
+
+# Street-level placement for cities that define a SPAWN.
+SPAWNS = {
+    "paris": paris.SPAWN,
+    "new_york": new_york.SPAWN,
+}
+CITY_SCALE = 10          # cm on the screen side per city unit
+EYE_HEIGHT = 1.6         # viewer's eye height above the city ground, in city units
+CITY_GROUND_Z = -1.0     # ground level used by the city files
+VIEWER_DISTANCE = 50     # typical eye distance from the screen, in cm
+
+# Scale and turn the city so the spawn point sits where the viewer's eyes are:
+# straight out from the screen centre, VIEWER_DISTANCE cm away, facing look_at.
+def place_viewer(scene, spawn):
+    x, y = spawn["position"]
+    tx, ty = spawn["look_at"]
+    heading = math.degrees(math.atan2(tx - x, ty - y))
+    scene.setPos(0, 0, 0)
+    scene.setHpr(heading, 0, 0)
+    scene.setScale(CITY_SCALE)
+    eye = scene.getParent().getRelativePoint(scene, Point3(x, y, CITY_GROUND_Z + EYE_HEIGHT))
+    scene.setPos(Point3(0, -VIEWER_DISTANCE, 0) - eye)
 
 # Panda3d-backed renderer which draws to a texture
 # instead of a window.
@@ -140,7 +164,7 @@ class Renderer:
         disp_region.setClearColor(LColorf(0.72, 0.82, 0.88, 1))
 
         lens = PerspectiveLens()
-        lens.setNearFar(1, 500)
+        lens.setNearFar(1, 5000)  # scaled cities reach several metres deep
         base.cam.node().setLens(lens)
 
         #makes the city display a node of its own
@@ -162,6 +186,8 @@ class Renderer:
                 load_city(scene, base.loader)
                 if FLATTEN_SCENE:
                     scene.flattenStrong()
+                if self.view_mode == "parallax" and requested_city in SPAWNS:
+                    place_viewer(scene, SPAWNS[requested_city])
                 gc.collect()   # the glTF loader leaves reference cycles behind
                 current_city = requested_city
 

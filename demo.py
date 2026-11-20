@@ -17,7 +17,7 @@ import track
 import style
 from home_page import build_home
 
-CAMERA_INDEX = 0     # cv2 device index; 0 is the OBS Virtual Camera on my mac (: - sean
+CAMERA_INDEX = int(os.environ.get("CAMERA_INDEX", 1))  # cv2 device index; on my mac 0 = OBS Virtual Camera, 1 = FaceTime HD - sean
 IPD_CM = 6.3        # distance between the viewer's pupils; 6.3 is the adult average
 FOCAL_PX = 1000     # camera focal length in pixels, for 1280x720 frames (estimate, not yet measured)
 TRACK_WIDTH = 320
@@ -339,6 +339,7 @@ def main():
         screen = Screen(width=40, height=17.5, cam_offset=0)
         # Keep the scene at the last known position if tracking drops out.
         state = {"eye": Eye(x=0, y=25, z=10), "running": True}
+        eye_filter = space.EyeFilter()
 
         async def monitor_memory():
             process = psutil.Process(os.getpid())
@@ -388,8 +389,8 @@ def main():
                         separation_px=result.eyes.separation_px if eye else None,
                     )
                     if eye:
-                        state["eye"] = eye
-                        rend.configure_camera(space.place_camera(eye, screen))
+                        state["eye"] = eye_filter(eye, completed_at)
+                        rend.configure_camera(space.place_camera(state["eye"], screen))
                     if not state["running"]:
                         break
                     if completed_at - last_preview >= 0.1:

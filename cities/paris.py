@@ -62,6 +62,10 @@ STREETLAMPS = [
     (17, -12), (17, -5), (17, 5), (17, 12), (17, 19), (17, 26), (17, 33),
 ]
 
+# Where the viewer stands (city x, y) and the point they face.
+# East quay, south of the bridge, looking across the Seine at the tower.
+SPAWN = {"position": (11, -14), "look_at": (-2, 8)}
+
 CROSSWALKS = [
     (-10, 5, "horizontal"),
     (-10, 21, "horizontal"),

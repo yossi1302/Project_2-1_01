@@ -8,6 +8,11 @@ ROADS = [
 ]
 TREES = [(-13, -5), (-13, 15), (3, -5), (3, 15)]
 
+# Where the viewer stands (city x, y) and the point they face.
+# South-west corner, looking east across the avenue: skyline ahead,
+# Statue of Liberty on the right.
+SPAWN = {"position": (-22, -12), "look_at": (6, 0)}
+
 def add_skyscraper(render, position, height):
     building = render.attachNewNode("Skyscraper")
     models.add_colored_cube(building, (0, 0, height / 2), (3, 3, height / 2), (0.40, 0.51, 0.61, 1))

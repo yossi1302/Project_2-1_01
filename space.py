@@ -1,3 +1,5 @@
+import math
+
 EYE_NEAR_CLIP = 15  # distance from screen of nearest possible eye position in cm
 
 # Eye position relative to screen, in centimeters.
@@ -32,3 +34,43 @@ def place_camera(eye, screen):
     )
 
 
+
+
+# One Euro filter (Casiez et al. 2012): smooths hard while the value is still
+# and less while it moves fast, so tracking noise is removed without lag.
+class OneEuroFilter:
+    def __init__(self, *, min_cutoff, beta, d_cutoff=1.0):
+        self.min_cutoff = min_cutoff  # Hz; lower = smoother when still
+        self.beta = beta              # higher = less lag when moving fast
+        self.d_cutoff = d_cutoff
+        self.value = self.speed = self.time = None
+
+    @staticmethod
+    def _alpha(cutoff, dt):
+        tau = 1.0 / (2 * math.pi * cutoff)
+        return 1.0 / (1.0 + tau / dt)
+
+    def __call__(self, value, time):
+        if self.time is None or time <= self.time:
+            self.value, self.speed, self.time = value, 0.0, time
+            return value
+        dt = time - self.time
+        speed = (value - self.value) / dt
+        a_d = self._alpha(self.d_cutoff, dt)
+        self.speed = a_d * speed + (1 - a_d) * self.speed
+        cutoff = self.min_cutoff + self.beta * abs(self.speed)
+        a = self._alpha(cutoff, dt)
+        self.value = a * value + (1 - a) * self.value
+        self.time = time
+        return self.value
+
+# Smooths a stream of Eye positions; time is in seconds.
+# Distance is the noisiest estimate, so it gets the strongest smoothing.
+class EyeFilter:
+    def __init__(self):
+        self.x = OneEuroFilter(min_cutoff=1.0, beta=0.05)
+        self.y = OneEuroFilter(min_cutoff=0.3, beta=0.02)
+        self.z = OneEuroFilter(min_cutoff=1.0, beta=0.05)
+
+    def __call__(self, eye, time):
+        return Eye(x=self.x(eye.x, time), y=self.y(eye.y, time), z=self.z(eye.z, time))

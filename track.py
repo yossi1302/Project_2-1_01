@@ -71,20 +71,13 @@ class Tracker:
 
         landmarks = result.face_landmarks[0]
         height, width = frame.shape[:2]
-        if len(landmarks) >= 478:
-            # Models with iris landmarks: use the iris centres directly.
-            first = landmarks[468]
-            second = landmarks[473]
-            eyes = EyePair(
-                first=Point2D(first.x * width, first.y * height),
-                second=Point2D(second.x * width, second.y * height),
-            )
-        else:
-            # Otherwise use the midpoint between each eye's corners.
-            eyes = EyePair(
-                first=_landmark_midpoint(landmarks, 33, 133, width, height),
-                second=_landmark_midpoint(landmarks, 362, 263, width, height),
-            )
+        # Use the centre between each eye's corners, not the iris landmarks:
+        # irises move when the viewer looks around the screen, which would
+        # shift the estimated head position even when the head holds still.
+        eyes = EyePair(
+            first=_landmark_midpoint(landmarks, 33, 133, width, height),
+            second=_landmark_midpoint(landmarks, 362, 263, width, height),
+        )
         blink = 0.0
         if result.face_blendshapes:
             scores = {c.category_name: c.score for c in result.face_blendshapes[0]}
