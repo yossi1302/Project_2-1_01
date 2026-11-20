@@ -1,7 +1,8 @@
-import models
 import gltf
 
 from panda3d.core import NodePath
+
+import models
 
 GROUND_Z = -1.0
 
