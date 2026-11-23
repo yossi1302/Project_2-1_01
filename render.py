@@ -32,6 +32,10 @@ SPAWNS = {
     "new_york": new_york.SPAWN,
     "venice": venice.SPAWN,
 }
+# Cities with moving parts -> called every frame 
+ANIMATIONS = {
+    "venice": venice.animate,
+}
 CITY_SCALE = 10          # cm on the screen side per city unit
 EYE_HEIGHT = 1.6         # viewer's eye height above the city ground, in city units
 CITY_GROUND_Z = -1.0     # ground level used by the city files
@@ -215,6 +219,9 @@ class Renderer:
 
             start = time.perf_counter()
 
+            if current_city in ANIMATIONS:
+                ANIMATIONS[current_city](scene, time.perf_counter())
+                
             base.graphicsEngine.renderFrame()
             self.record_frame(render_tex, current_city)
 
