@@ -11,7 +11,7 @@ import math
 import numpy as np
 
 import space
-from cities import paris, new_york, venice
+from cities import paris, new_york, venice, maastricht
 
 CITY = "new_york"  # Pick starting scene (not relevant cause not displayed)
 
@@ -19,6 +19,7 @@ CITIES = {
     "paris": paris.load_paris,
     "new_york": new_york.load_new_york,
     "venice": venice.load_venice,
+    "maastricht": maastricht.load_maastricht,
 }
 
 # Merge the static city geometry into a handful of big meshes once it is loaded
@@ -31,6 +32,7 @@ SPAWNS = {
     "paris": paris.SPAWN,
     "new_york": new_york.SPAWN,
     "venice": venice.SPAWN,
+    "maastricht": maastricht.SPAWN,
 }
 # Cities with moving parts -> called every frame 
 ANIMATIONS = {
