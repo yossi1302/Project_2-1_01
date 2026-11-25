@@ -59,3 +59,7 @@ The calculations live in `metrics.py`. The metrics and their help dialog remain 
 
 For the future, we plan to improve the existing components and add some more features which would allow greater control and introspection into the program. We would also like to improve the default scene and provide other options for the illusion that is used.
 
+## Credits
+
+- Gondola model (Venice): [1DesignTool 3D library](https://1designtool.com/3d/models/canal-city-gondola), free licence.
+

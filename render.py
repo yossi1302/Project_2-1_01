@@ -11,13 +11,14 @@ import math
 import numpy as np
 
 import space
-from cities import paris, new_york
+from cities import paris, new_york, venice
 
 CITY = "new_york"  # Pick starting scene (not relevant cause not displayed)
 
 CITIES = {
     "paris": paris.load_paris,
     "new_york": new_york.load_new_york,
+    "venice": venice.load_venice,
 }
 
 # Merge the static city geometry into a handful of big meshes once it is loaded
@@ -29,6 +30,11 @@ FLATTEN_SCENE = True
 SPAWNS = {
     "paris": paris.SPAWN,
     "new_york": new_york.SPAWN,
+    "venice": venice.SPAWN,
+}
+# Cities with moving parts -> called every frame 
+ANIMATIONS = {
+    "venice": venice.animate,
 }
 CITY_SCALE = 10          # cm on the screen side per city unit
 EYE_HEIGHT = 1.6         # viewer's eye height above the city ground, in city units
@@ -213,6 +219,9 @@ class Renderer:
 
             start = time.perf_counter()
 
+            if current_city in ANIMATIONS:
+                ANIMATIONS[current_city](scene, time.perf_counter())
+                
             base.graphicsEngine.renderFrame()
             self.record_frame(render_tex, current_city)
 
