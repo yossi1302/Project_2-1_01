@@ -3,7 +3,10 @@ import math
 from panda3d.core import ModelNode
 
 GROUND_Z = -1.0
-CANAL_POINTS = [(0, -15), (0, 35)]
+CANAL_POINTS = [(0, -15), (0, 31)]  #main canal
+CROSS_CANAL_POINTS = [(-25, 28), (25, 28)]   #T canal
+SIDE_HOUSES_END = 25                          
+END_ROW_Y = 33                                # row of houses behind the T canal
 CANAL_WIDTH = 6.0
 WATER_COLOR = (0.18, 0.42, 0.42, 1)
 HOUSE_COLORS = [
@@ -19,12 +22,22 @@ BRIDGE_HALF_SPAN = 5
 BRIDGE_RISE = 1.5       
 BRIDGE_SEGMENTS = 8
 GONDOLA_SCALE = 0.6
-GONDOLA_POS = (0.8, 0, -1.05)   # z: hull sits a little below the water surface 
+GONDOLA_Z = -1.05   
+#(position, heading in degrees)
+GONDOLAS = [
+    ((0.8, 0, GONDOLA_Z), 4),    # close one
+    ((1, 28, GONDOLA_Z), 90),    # far away
+]
+# Houses with a water entrance: (side, house y). side -1 = left bank, 1 = right bank.
+DOCKS = [(-1, -9), (1, -5), (-1, 3), (1, 19)]
+
 
 SPAWN = {"position": (0, -12), "look_at": (0, 10)}
 
 def add_canal(render):
-    return models.add_path(render, CANAL_POINTS, CANAL_WIDTH, WATER_COLOR, z=-0.94)
+    main = models.add_path(render, CANAL_POINTS, CANAL_WIDTH, WATER_COLOR, z=-0.94)
+    cross = models.add_path(render, CROSS_CANAL_POINTS, CANAL_WIDTH, WATER_COLOR, z=-0.94)
+    return main, cross
 
 def add_house(render, position, height, color, flip=False):
     house = render.attachNewNode("Canal House")
@@ -53,7 +66,7 @@ def add_house(render, position, height, color, flip=False):
     return house
 
 def add_houses_group(render):
-    for i, y in enumerate(range(-13, 35, 4)):
+    for i, y in enumerate(range(-13, SIDE_HOUSES_END, 4)):
         if y == BRIDGE_Y:
             continue   # leave an alley where the bridge lands
         left_color = HOUSE_COLORS[i % len(HOUSE_COLORS)]
@@ -63,6 +76,21 @@ def add_houses_group(render):
 
         add_house(render, (-5, y, 0), left_height, left_color)
         add_house(render, (5, y, 0), right_height, right_color, flip=True)
+
+def add_end_row(render):
+    for i, x in enumerate(range(-23, 25, 4)):
+        color = HOUSE_COLORS[(i + 1) % len(HOUSE_COLORS)]
+        height = HOUSE_HEIGHTS[i % len(HOUSE_HEIGHTS)]   
+        house = add_house(render, (x, END_ROW_Y, 0), height, color)
+        house.setH(-90)   # windows face the viewer (-y)
+
+
+def add_doors(render):
+    wood = (0.30, 0.20, 0.13, 1)   
+    water_z = -0.94 
+    for side, y in DOCKS:
+        door = render.attachNewNode("Water Door") 
+        models.add_colored_cube(door, position=(side * 2.93, y, water_z + 0.75), scale=(0.03, 0.4, 0.7), color=wood)
 
 def add_bridge(render):
     bridge = render.attachNewNode("Bridge")
@@ -93,37 +121,47 @@ def add_bridge(render):
     bridge.setPos(0, BRIDGE_Y, 0)
     return bridge
 
-def add_gondola(render, loader):
+def add_pole(render, x, y):
+    wood = (0.45, 0.32, 0.20, 1)
+    pole = render.attachNewNode("Pole")
+    models.add_colored_cube(pole, position=(0, 0, -0.5), scale=(0.08, 0.08, 1.2), color=wood)
+    pole.setPos(x, y, 0)
+    return pole
 
+def add_poles(render):
+    for side, y in DOCKS:
+        for dy in (-0.6, 0.6):   
+            add_pole(render, side * 1.8, y + dy)
+
+def add_gondola(render, loader, position, heading):
     holder = render.attachNewNode(ModelNode("Gondola"))
     holder.node().setPreserveTransform(ModelNode.PT_local)
-
     gondola = loader.loadModel("assets/models/gondola.glb")
     gondola.reparentTo(holder)
-
     gondola.setScale(GONDOLA_SCALE)
 
-    #we have to copy colors from model - AI generated lines
+    #copy colors from model - AI generated lines
     for part in gondola.findAllMatches("**/+GeomNode"):
         r, g, b, a = part.findAllMaterials()[0].getBaseColor()
         # glTF stores colours as linear values; ** (1 / 2.2) turns them back into screen colours
         part.setColor(r ** (1 / 2.2), g ** (1 / 2.2), b ** (1 / 2.2), 1, 1)
     gondola.setLightOff(1)
     #end of AI code
-
-    holder.setPos(*GONDOLA_POS)
-    holder.setH(4)   # turned a little
+    holder.setPos(*position)
+    holder.setH(heading)
     return holder
 
-# Called every frame 
-def animate(scene, t):
-    gondola = scene.find("**/Gondola")
-    if gondola.isEmpty():
-        return
-    gondola.setR(2 * math.sin(t * 1.3))                          # rocks side to side
-    gondola.setP(0.8 * math.sin(t * 0.9))                        # bow up and down a little
-    gondola.setZ(GONDOLA_POS[2] + 0.04 * math.sin(t * 1.7))      # bobs on the water
+def add_gondolas(render, loader):
+    for position, heading in GONDOLAS:
+        add_gondola(render, loader, position, heading)
 
+# Called every frame
+def animate(scene, t):
+    for i, gondola in enumerate(scene.findAllMatches("**/Gondola")):
+        phase = i * 1.7   # the two boats rock out of step
+        gondola.setR(2 * math.sin(t * 1.3 + phase))                    # rocks side to side
+        gondola.setP(0.8 * math.sin(t * 0.9 + phase))                  # bow up and down a little
+        gondola.setZ(GONDOLA_Z + 0.04 * math.sin(t * 1.7 + phase))     # bobs on the water
 
 
 
@@ -134,5 +172,8 @@ def load_venice(render, loader):
     models.add_ground(render)
     add_canal(render)
     add_houses_group(render)
+    add_end_row(render)
     add_bridge(render)
-    add_gondola(render, loader)
+    add_gondolas(render, loader)
+    add_poles(render)
+    add_doors(render)
