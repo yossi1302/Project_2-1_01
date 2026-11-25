@@ -1,6 +1,7 @@
 import math
 
 EYE_NEAR_CLIP = 15  # distance from screen of nearest possible eye position in cm
+HORIZONTAL_FOV_DEG = 45  # fixed horizontal viewing angle, independent of head distance
 
 # Eye position relative to screen, in centimeters.
 class Eye:
@@ -23,14 +24,17 @@ class CameraConfig:
         self.film_offset = film_offset
         self.focal_length = focal_length
 
-# Place the camera in panda3d space given the eye and screen
+# Move the camera with the viewer while keeping the horizontal field of view fixed.
 def place_camera(eye, screen):
     dist = max(eye.y, EYE_NEAR_CLIP)
+    # Derive focal length from film width and the fixed viewing angle. Using
+    # dist here would change the viewing angle as the viewer leans in or out.
+    focal_length = screen.width / (2 * math.tan(math.radians(HORIZONTAL_FOV_DEG) / 2))
     return CameraConfig(
         pos = (eye.x, -dist, eye.z),
         film_size = (screen.width, screen.height),
         film_offset = (-eye.x, -eye.z),
-        focal_length = dist
+        focal_length = focal_length
     )
 
 
