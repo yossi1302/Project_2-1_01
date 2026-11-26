@@ -338,7 +338,7 @@ def main():
 
         screen = Screen(width=40, height=17.5, cam_offset=0)
         # Keep the scene at the last known position if tracking drops out.
-        state = {"eye": Eye(x=0, y=25, z=10), "running": True}
+        state = {"eye": Eye(x=0, y=25, z=10), "running": True ,"flying": False}
         eye_filter = space.EyeFilter()
 
         async def monitor_memory():
