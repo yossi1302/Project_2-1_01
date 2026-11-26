@@ -109,7 +109,6 @@ def load_paris(render, loader):
         add_haussmann_building(render, position=position)
 
     # Display the dimensions of the model
-    print("Dimensions of the Eiffel Tower :", paris.getTightBounds())
 
     return paris
 

@@ -344,7 +344,6 @@ def main():
         async def monitor_memory():
             process = psutil.Process(os.getpid())
             while state["running"]:
-                print(f"Memory usage: {process.memory_info().rss / (1024 * 1024):.1f} MB")
                 await asyncio.sleep(5)
 
         async def track_viewer():

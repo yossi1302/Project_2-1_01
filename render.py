@@ -231,7 +231,6 @@ class Renderer:
             render_ms = (time.perf_counter() - start) * 1000
 
             if time.perf_counter() - last_log >= 5:
-                print(f"Panda3D sans capture : {render_ms:.1f} ms")
                 last_log = time.perf_counter()
 
             # If the frame finished early
