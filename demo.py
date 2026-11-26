@@ -269,6 +269,7 @@ def main():
             city_view.visible=False
             home.visible=True
             state["flying"] = False
+            blink_tip.visible = False
             page.update()
 
         def fly():
@@ -278,12 +279,68 @@ def main():
         def start_flying(_event=None):
             state["flying"] = True
             fly()
+            if not state["blink_tip_shown"]:
+                blink_tip.visible = True
+                state["blink_tip_shown"] = True
+                page.update()
+
+        def dismiss_blink_tip(_event=None):
+            blink_tip.visible = False
+            page.update()
 
         async def quit_app(_event=None):
+            if not state["running"]:
+                return
             state["running"] = False
             await asyncio.to_thread(rend.stop)
-            await page.window.close()
+            await page.window.destroy()
 
+        async def window_event(event):
+            if event.type == ft.WindowEventType.CLOSE:
+                await quit_app()
+
+
+        blink_tip = ft.Container(
+            top=16, left=352, right=268,
+            visible=False,
+            padding=16,
+            bgcolor=ft.Colors.WHITE,
+            border=ft.Border.all(1, style.LINE),
+            border_radius=16,
+            shadow=ft.BoxShadow(
+                blur_radius=24, spread_radius=0,
+                color="#1A1E293B", offset=ft.Offset(0, 6),
+            ),
+            content=ft.Row(
+                spacing=12,
+                vertical_alignment=ft.CrossAxisAlignment.START,
+                controls=[
+                    ft.Container(
+                        width=40, height=40, border_radius=12,
+                        bgcolor=style.SOFT, alignment=ft.Alignment.CENTER,
+                        content=ft.Icon(ft.Icons.VISIBILITY_OUTLINED,
+                                        color=style.PRIMARY, size=22),
+                    ),
+                    ft.Column(
+                        expand=True, spacing=4, tight=True,
+                        controls=[
+                            ft.Text("Your next city is a blink away", size=15,
+                                    weight=ft.FontWeight.W_600, color=style.INK),
+                            ft.Text(
+                                "Close both eyes for half a second to fly. "
+                                "Open them again before your next blink.",
+                                size=13, color=style.MUTED,
+                            ),
+                        ],
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.CLOSE, icon_size=18,
+                        icon_color=style.MUTED, tooltip="Dismiss tip",
+                        on_click=dismiss_blink_tip,
+                    ),
+                ],
+            ),
+        )
 
         city_view=ft.Stack(
             controls=[
@@ -324,6 +381,7 @@ def main():
                     on_click=go_home,
                 ),
                 panel.control,
+                blink_tip,
             ],
             fit=ft.StackFit.EXPAND,
             expand=True,
@@ -338,7 +396,8 @@ def main():
 
         screen = Screen(width=40, height=17.5, cam_offset=0)
         # Keep the scene at the last known position if tracking drops out.
-        state = {"eye": Eye(x=0, y=25, z=10), "running": True ,"flying": False}
+        state = {"eye": Eye(x=0, y=25, z=10), "running": True,
+                 "flying": False, "blink_tip_shown": False}
         eye_filter = space.EyeFilter()
 
         async def monitor_memory():
@@ -376,8 +435,11 @@ def main():
                     result, latency_ms = await asyncio.to_thread(
                         timed_tracking, tracker, small, last_ts
                     )
+                    if not state["running"]:
+                        break
                     completed_at = time.monotonic()
                     if blinks.update(result.blink, last_ts) and state["flying"]:
+                        blink_tip.visible = False
                         fly()
                     eye = (eye_from_tracking(result.eyes, small_w, small_h, screen,
                                              focal_px=FOCAL_PX * small_w / w)
@@ -399,6 +461,11 @@ def main():
                             await camera_preview.render(preview, premultiplied=True)
                         except TimeoutError:
                             pass
+                        except RuntimeError as error:
+                            if str(error) != "An attempt to fetch destroyed session.":
+                                raise
+                            await disconnect(None)
+                            return
             except Exception:
                 logging.exception("Eye tracking stopped")
                 metrics.unavailable("Tracking error — see terminal")
@@ -411,7 +478,13 @@ def main():
         async def update_metrics():
             while state["running"]:
                 panel.refresh(metrics.snapshot(time.monotonic()))
-                panel.control.update()
+                try:
+                    panel.control.update()
+                except RuntimeError as error:
+                    if str(error) != "An attempt to fetch destroyed session.":
+                        raise
+                    await disconnect(None)
+                    return
                 await asyncio.sleep(0.2)
 
         async def disconnect(_event):
@@ -434,12 +507,19 @@ def main():
                     await target.render(frame, premultiplied=True)
                 except TimeoutError:
                     continue
+                except RuntimeError as error:
+                    if str(error) != "An attempt to fetch destroyed session.":
+                        raise
+                    await disconnect(None)
+                    return
                 if loading.visible:
                     loading.visible = False
                     page.update()
 
         page.update()
         page.on_disconnect = disconnect
+        page.window.prevent_close = True
+        page.window.on_event = window_event
         rend.configure_camera(space.place_camera(state["eye"], screen))
         await page.window.center()
         rend.run()
