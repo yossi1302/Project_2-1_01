@@ -11,7 +11,7 @@ import math
 import numpy as np
 
 import space
-from cities import paris, new_york, venice, maastricht
+from cities import paris, new_york, venice, sydney, maastricht
 
 CITY = "new_york"  # Pick starting scene (not relevant cause not displayed)
 
@@ -20,6 +20,7 @@ CITIES = {
     "new_york": new_york.load_new_york,
     "venice": venice.load_venice,
     "maastricht": maastricht.load_maastricht,
+    "sydney": sydney.load_sydney,
 }
 
 # Merge the static city geometry into a handful of big meshes once it is loaded
